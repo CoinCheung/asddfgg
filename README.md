@@ -15,7 +15,6 @@ The resnet models for cifar and imagenet have different structures. Cifar models
 
 2. pre-activation or post-activation  
 pre-activation models start with a conv without bn and relu(if no maxpool followed), which are tucked into the residual block.
-
 The pre-activation model should be end with a bn-relu module.
 
 
