@@ -21,16 +21,34 @@ torch.backends.cudnn.deterministic = True
 torch.multiprocessing.set_sharing_strategy('file_system')
 
 
+##=========================
 ## configurations
+##=========================
 ds_name = 'cifar10'
 n_classes = 10
 pre_act = True
 save_pth = './res/model_final_naive.pth'
-mixup_alpha = 1.
-use_mixup = False
+# dataloader
+batchsize = 256
+n_workers = 8
+# mixup
+use_mixup = True
+mixup_alpha = 0.5
+# optimizer
+momentum = 0.9
+wd = 5e-4
+lr0 = 2e-1
+lr_eta = 1e-5
+n_epochs = 200
+n_warmup_epochs = 10
+warmup_start_lr = 1e-5
+warmup_method = 'linear'
+cycle_len = 190
+cycle_mult = 1
+lr_decay = 1
 
 
-def train():
+def set_model():
     model = Resnet18(n_classes=n_classes, pre_act=pre_act)
     model.cuda()
     criteria = torch.nn.CrossEntropyLoss()
@@ -38,24 +56,10 @@ def train():
     #      lb_pos=0.95,
     #      lb_neg=0.00005,
     #  )
+    return model, criteria
 
-    batchsize = 256
-    n_workers = 8
-    dltrain = get_train_loader(
-        batch_size=batchsize,
-        num_workers=n_workers,
-        dataset=ds_name,
-        pin_memory=False
-    )
 
-    lr0 = 2e-1
-    lr_eta = 1e-5
-    momentum = 0.9
-    wd = 5e-4
-    n_epochs = 200
-    n_warmup_epochs = 10
-    warmup_start_lr = 1e-5
-    warmup_method = 'linear'
+def set_optimizer(model):
     optim = torch.optim.SGD(
         model.parameters(),
         lr=lr0,
@@ -84,10 +88,29 @@ def train():
         warmup_epochs=n_warmup_epochs,
         warmup=warmup_method,
         max_epochs=n_epochs,
-        cycle_len=190,
-        cycle_mult=1,
+        cycle_len=cycle_len,
+        cycle_mult=cycle_mult,
+        lr_decay=lr_decay,
         cos_eta=lr_eta,
     )
+    return optim, lr_sheduler
+
+
+def train_one_epoch(model, criteria, dltrain, optim):
+    pass
+
+
+def train_naive(save_pth):
+    model, criteria = set_model()
+
+    dltrain = get_train_loader(
+        batch_size=batchsize,
+        num_workers=n_workers,
+        dataset=ds_name,
+        pin_memory=False
+    )
+
+    optim, lr_sheduler = set_optimizer(model)
 
     for e in range(n_epochs):
         tic = time.time()
@@ -135,6 +158,9 @@ def train():
     torch.save(state_dict, save_pth)
 
 
+def train_label_refinery():
+    pass
+
 
 def evaluate(model=None, verbose=True):
     if model is None:
@@ -181,7 +207,10 @@ def evaluate(model=None, verbose=True):
     return acc
 
 
+def main():
+    train_naive(save_pth)
+    evaluate()
+
 
 if __name__ == "__main__":
-    train()
-    evaluate()
+    main()

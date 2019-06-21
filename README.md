@@ -22,7 +22,7 @@ The resnet models for cifar and imagenet have different structures. Cifar models
 ### Training Tricks
 1. weight decay matters. A small weight decay may cause overfitting (the loss goes low but the test accuracy is not high). `5e-4` is better than `1e-4`.
 
-2. cos annealing learning rate curve is better than the multi-step curve.
+2. cos annealing learning rate curve is better than the multi-step curve. The eta matters, too large and too small will lead to inferior results. With the pre-activated resnet-18 model, it is better to set this to be 1e-4.
 
 3. for the normal resnet, it is better initialized the value of bn gamma of each residual block to be 0. For the pre-activated resnet, it is harmful to initialize bn gamma to be 0.
 

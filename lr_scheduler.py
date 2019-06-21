@@ -45,7 +45,8 @@ class WarmupCosineAnnealingLR(torch.optim.lr_scheduler._LRScheduler):
             cos_epochs = self.max_epochs - self.warmup_epochs
             cos_factor = (1 + math.cos(math.pi * cos_last_epoch / cos_epochs)) / 2.
             lr_group = [
-                lr * cos_factor for lr in self.base_lrs
+                self.cos_eta + (lr - self.cos_eta) * cos_factor
+                for lr in self.base_lrs
             ]
         return lr_group
 
@@ -104,6 +105,7 @@ class WarmupCyclicLR(torch.optim.lr_scheduler._LRScheduler):
             max_epochs,
             cycle_len,
             cycle_mult,
+            lr_decay=1,
             warmup='exp',
             cos_eta=0,
             last_epoch=-1
@@ -113,12 +115,14 @@ class WarmupCyclicLR(torch.optim.lr_scheduler._LRScheduler):
         self.warmup_start_lr = warmup_start_lr
         self.cycle_len = cycle_len
         self.cycle_mult = cycle_mult
+        self.lr_decay = lr_decay
         self.cos_eta = cos_eta
         self.warmup = warmup
-        super(WarmupCyclicLR, self).__init__(optimizer, last_epoch)
+        self.lr_decay_factor = 1
         self.n_cycles = 0
         self.curr_cycle_len = cycle_len
         self.cycle_past_all_epoch = 0
+        super(WarmupCyclicLR, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
         if self.last_epoch < self.warmup_epochs:
@@ -147,11 +151,14 @@ class WarmupCyclicLR(torch.optim.lr_scheduler._LRScheduler):
                 self.cycle_past_all_epoch += self.curr_cycle_len
                 self.curr_cycle_len *= self.cycle_mult
                 cycle_epoch = 0
+                self.lr_decay_factor *= self.lr_decay
             cos_factor = 0.5 * (
                 1 + math.cos(math.pi * cycle_epoch / self.curr_cycle_len)
             )
             lr_group = [
-                lr * cos_factor for lr in self.base_lrs
+                self.cos_eta + (lr * self.lr_decay_factor - self.cos_eta)
+                * cos_factor
+                for lr in self.base_lrs
             ]
         return lr_group
 
@@ -164,7 +171,7 @@ if __name__ == '__main__':
     scheduler = WarmupCosineAnnealingLR(op, 1e-5, 10, max_epochs, 'linear')
     #  scheduler = WarmupCosineAnnealingLR(op, 10, max_epochs)
     #  scheduler = WarmupMultiStepLR(op, 1e-5, 10, [30, 60, 90], 0.1, 'linear')
-    scheduler = WarmupCyclicLR(op, 1e-5, 10, 100, 10, 2, 'linear')
+    scheduler = WarmupCyclicLR(op, 1e-5, 10, 100, 90, 1, 0.8, 'linear', 1e-5)
     import numpy as np
     import matplotlib.pyplot as plt
     lrs = []
@@ -174,5 +181,6 @@ if __name__ == '__main__':
     xs = np.arange(len(lrs))
     lrs = np.array(lrs)
     plt.plot(xs, lrs)
+    plt.grid()
     plt.show()
 

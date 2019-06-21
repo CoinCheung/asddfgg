@@ -112,3 +112,4 @@ model_new.py
 train.py
 test_res.csv
 *.jpg
+train.log
