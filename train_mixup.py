@@ -7,14 +7,16 @@ import numpy as np
 
 from model import Resnet18
 from cifar import get_train_loader, get_val_loader
-from lr_scheduler import WarmupCosineAnnealingLR
+from lr_scheduler import WarmupCosineAnnealingLR, WarmupMultiStepLR, WarmupCyclicLR
 from label_smooth import LabelSmoothSoftmaxCE
 
 
+# fix random behaviors
 torch.manual_seed(123)
 torch.cuda.manual_seed_all(123)
 random.seed(123)
 np.random.seed(123)
+torch.backends.cudnn.deterministic = True
 
 torch.multiprocessing.set_sharing_strategy('file_system')
 
@@ -22,18 +24,20 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 ## configurations
 ds_name = 'cifar10'
 n_classes = 10
-pre_act = False
+pre_act = True
 save_pth = './res/model_final_naive.pth'
+mixup_alpha = 1.
+use_mixup = False
 
 
 def train():
     model = Resnet18(n_classes=n_classes, pre_act=pre_act)
     model.cuda()
-    #  criteria = torch.nn.CrossEntropyLoss()
-    criteria = LabelSmoothSoftmaxCE(
-        lb_pos=0.9,
-        lb_neg=0.0001,
-    )
+    criteria = torch.nn.CrossEntropyLoss()
+    #  criteria = LabelSmoothSoftmaxCE(
+    #      lb_pos=0.95,
+    #      lb_neg=0.00005,
+    #  )
 
     batchsize = 256
     n_workers = 8
@@ -58,12 +62,30 @@ def train():
         momentum=momentum,
         weight_decay=wd
     )
-    lr_sheduler = WarmupCosineAnnealingLR(
+    #  lr_sheduler = WarmupMultiStepLR(
+    #      optim,
+    #      warmup_start_lr=warmup_start_lr,
+    #      warmup_epochs=n_warmup_epochs,
+    #      warmup=warmup_method,
+    #      milestones=[100, 150],
+    #      gamma=0.1,
+    #  )
+    #  lr_sheduler = WarmupCosineAnnealingLR(
+    #      optim,
+    #      warmup_start_lr=warmup_start_lr,
+    #      warmup_epochs=n_warmup_epochs,
+    #      warmup=warmup_method,
+    #      max_epochs=n_epochs,
+    #      cos_eta=lr_eta,
+    #  )
+    lr_sheduler = WarmupCyclicLR(
         optim,
         warmup_start_lr=warmup_start_lr,
         warmup_epochs=n_warmup_epochs,
         warmup=warmup_method,
         max_epochs=n_epochs,
+        cycle_len=190,
+        cycle_mult=1,
         cos_eta=lr_eta,
     )
 
@@ -73,12 +95,23 @@ def train():
         lr_sheduler.step()
         loss_epoch = []
         for _, (ims, lbs) in enumerate(dltrain):
+            #  lr_sheduler.step()
             ims = ims.cuda()
             lbs = lbs.cuda()
 
             optim.zero_grad()
-            logits = model(ims)
-            loss = criteria(logits, lbs)
+            if use_mixup:
+                bs = ims.size(0)
+                idx = torch.randperm(bs)
+                lam = np.random.beta(mixup_alpha, mixup_alpha)
+                ims_mix = lam * ims + (1.-lam) * ims[idx]
+                logits = model(ims_mix)
+                loss1 = criteria(logits, lbs)
+                loss2 = criteria(logits, lbs[idx])
+                loss = lam * loss1 + (1.-lam) * loss2
+            else:
+                logits = model(ims)
+                loss = criteria(logits, lbs)
             loss.backward()
             loss_epoch.append(loss.item())
             optim.step()

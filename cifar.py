@@ -4,14 +4,15 @@ from PIL import Image
 import torch
 import torchvision
 import torchvision.transforms as T
+#  import transforms as T
 
 
 class ChannelDrop(object):
-    def __init__(self):
-        pass
+    def __init__(self, n_max_chan_drop=2):
+        self.n_max_chan_drop = n_max_chan_drop
 
     def __call__(self, im):
-        n_drops = random.randint(0, 2)
+        n_drops = random.randint(0, self.n_max_chan_drop)
         if n_drops == 0:
             return im
         drop_chan = random.sample([0, 1, 2], n_drops)
@@ -25,11 +26,12 @@ def get_train_loader(batch_size, num_workers, dataset='cifar10', pin_memory=True
     assert dataset in ('cifar10', 'cifar100'), 'unrecognised dataset'
     trans = T.Compose([
         #  ChannelDrop(),
-        T.Resize((36, 36)),
+        T.Pad((4, 4)),
         T.RandomCrop((32, 32)),
         T.RandomHorizontalFlip(0.5),
         T.ToTensor(),
-        T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        #  T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        T.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     ])
     if dataset == 'cifar10':
         ds = torchvision.datasets.CIFAR10(
@@ -60,9 +62,9 @@ def get_val_loader(batch_size, num_workers, dataset='cifar10', pin_memory=True):
     assert dataset in ('cifar10', 'cifar100'), 'unrecognised dataset'
     trans = T.Compose([
         T.Resize((32, 32)),
-        T.RandomCrop((32, 32)),
         T.ToTensor(),
-        T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        #  T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
+        T.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     ])
     if dataset == 'cifar10':
         ds = torchvision.datasets.CIFAR10(

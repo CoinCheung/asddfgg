@@ -1,5 +1,7 @@
 
 import time
+import random
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,11 +10,18 @@ from model import Resnet18
 from cifar import get_train_loader, get_val_loader
 from lr_scheduler import WarmupCosineAnnealingLR
 
+# fix all seed
 torch.manual_seed(123)
+torch.cuda.manual_seed_all(123)
+random.seed(123)
+np.random.seed(123)
+torch.backends.cudnn.deterministic = True
 
 ds_name = 'cifar10'
 n_classes = 10
-pre_act = False
+pre_act = True
+mixup_alpha = 1.
+mixup = True
 
 
 def train(gen_path, save_pth):
@@ -39,8 +48,10 @@ def train(gen_path, save_pth):
     lr_eta = 1e-5
     momentum = 0.9
     wd = 5e-4
-    n_epochs = 200
+    n_epochs = 50
     n_warmup_epochs = 10
+    warmup_start_lr = 1e-5
+    warmup_method = 'linear'
     optim = torch.optim.SGD(
         model.parameters(),
         lr=lr0,
@@ -49,9 +60,11 @@ def train(gen_path, save_pth):
     )
     lr_sheduler = WarmupCosineAnnealingLR(
         optim,
+        warmup_start_lr=warmup_start_lr,
         warmup_epochs=n_warmup_epochs,
+        warmup=warmup_method,
         max_epochs=n_epochs,
-        cos_eta=lr_eta
+        cos_eta=lr_eta,
     )
 
     for e in range(n_epochs):
@@ -61,14 +74,25 @@ def train(gen_path, save_pth):
         loss_epoch = []
         for _, (ims, _) in enumerate(dltrain):
             ims = ims.cuda()
+            # generate labels
             with torch.no_grad():
                 lbs = generator(ims).clone()
                 lbs = torch.softmax(lbs, dim=1)
             optim.zero_grad()
-            # generate labels
-            logits = model(ims)
-            probs = F.log_softmax(logits, dim=1)
-            loss = criteria(probs, lbs)
+            if mixup:
+                bs = ims.size(0)
+                idx = torch.randperm(bs)
+                lam = np.random.beta(mixup_alpha, mixup_alpha)
+                ims_mix = lam * ims + (1.-lam) * ims[idx]
+                logits = model(ims_mix)
+                probs = F.log_softmax(logits, dim=1)
+                loss1 = criteria(probs, lbs)
+                loss2 = criteria(probs, lbs[idx])
+                loss = lam * loss1 + (1.-lam) * loss2
+            else:
+                logits = model(ims)
+                probs = F.log_softmax(logits, dim=1)
+                loss = criteria(probs, lbs)
             loss.backward()
             loss_epoch.append(loss.item())
             optim.step()
@@ -138,12 +162,18 @@ if __name__ == "__main__":
         './res/model_final_2.pth',
         './res/model_final_3.pth',
         './res/model_final_4.pth',
+        #  './res/model_final_5.pth',
+        #  './res/model_final_6.pth',
+        #  './res/model_final_7.pth',
     ]
     save_pths = [
         './res/model_final_2.pth',
         './res/model_final_3.pth',
         './res/model_final_4.pth',
         './res/model_final_5.pth',
+        #  './res/model_final_6.pth',
+        #  './res/model_final_7.pth',
+        #  './res/model_final_8.pth',
     ]
 
     for gen_pth, save_pth in zip(gen_pths, save_pths):

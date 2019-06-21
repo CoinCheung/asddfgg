@@ -14,15 +14,27 @@ The resnet models for cifar and imagenet have different structures. Cifar models
 
 
 2. pre-activation or post-activation  
-pre-activation models start with a conv without bn and relu(if no maxpool followed), which are tucked into the residual block.
-The pre-activation model should be end with a bn-relu module.
+* pre-activation models start with a conv without bn and relu(if no maxpool followed), which are tucked into the residual block.
+
+* The pre-activation model should be end with a bn-relu module.
 
 
 ### Training Tricks
 1. weight decay matters. A small weight decay may cause overfitting (the loss goes low but the test accuracy is not high). `5e-4` is better than `1e-4`.
 
-2. label smooth helps a little. Maybe overfitting is always a problem with these small pictures. 
+2. cos annealing learning rate curve is better than the multi-step curve.
 
 3. for the normal resnet, it is better initialized the value of bn gamma of each residual block to be 0. For the pre-activated resnet, it is harmful to initialize bn gamma to be 0.
 
-4. as claimed in the paper of wide resnet, adding dropout to residual path can give a little help. In the implementation of the paper, dropout is added after the relu functions, and the first convolution should not have dropout.
+4. as for the pre-processing  
+* it seems not useful to use multi-scale training on cifar(different from imagenet). It is better to pad the input image with 4 pixels on each side and then implement random cropping. It will harm the performance if the image is first resized and then cropped randomly. If it is on imagenet dataset, most paper would like to implement random resizing and then cropping(on test, it is also resized by some ratio and then center cropped), but it is not the thing with cifar.
+
+5. as claimed in the paper of wide resnet, adding dropout to residual path can give a little help. In the implementation of the paper, dropout is added after the relu functions, and the first convolution should not have dropout.
+
+
+### Tricks that does not work 
+1. label smooth: adding label smooth would make the performance a little worse. Maybe the model is not overfitting, and it is just experiencing some underfitting with this trick.
+
+2. dropout: No matter adding dropout to the residual block(before the last residual conv), or before or after the output fc layer, the result would become a little worse.
+
+3. SGDR: 
