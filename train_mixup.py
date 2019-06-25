@@ -2,15 +2,22 @@
 import time
 import random
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
 from model import Resnet18
 from cifar import get_train_loader, get_val_loader
 from lr_scheduler import WarmupCosineAnnealingLR, WarmupMultiStepLR, WarmupCyclicLR
-from label_smooth import LabelSmoothSoftmaxCE
+from loss import (
+        LabelSmoothSoftmaxCE, KVDivLoss,
+        SoftmaxCrossEntropyWithOneHot, OneHot, LabelSmooth
+    )
 
 
+##=========================
+## settings
+##=========================
 # fix random behaviors
 torch.manual_seed(123)
 torch.cuda.manual_seed_all(123)
@@ -26,37 +33,50 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 ##=========================
 ds_name = 'cifar10'
 n_classes = 10
-pre_act = True
-save_pth = './res/model_final_naive.pth'
+pre_act = False
 # dataloader
 batchsize = 256
 n_workers = 8
-# mixup
-use_mixup = True
-mixup_alpha = 0.5
 # optimizer
 momentum = 0.9
 wd = 5e-4
 lr0 = 2e-1
-lr_eta = 1e-5
-n_epochs = 200
+lr_eta = 1e-4
 n_warmup_epochs = 10
 warmup_start_lr = 1e-5
 warmup_method = 'linear'
+n_epochs = 200
 cycle_len = 190
-cycle_mult = 1
-lr_decay = 1
+cycle_mult = 1.
+lr_decay = 1.
+# label smooth
+use_lb_smooth = False
+lb_pos = 0.9
+lb_neg = 0.00005
+# mixup
+use_mixup = True
+mixup_use_kldiv = False
+mixup_alpha = 0.3
+# label refinery
+lb_refine = True
+refine_cycles = 4
 
 
-def set_model():
+def set_model(generator_pth=None):
     model = Resnet18(n_classes=n_classes, pre_act=pre_act)
     model.cuda()
-    criteria = torch.nn.CrossEntropyLoss()
-    #  criteria = LabelSmoothSoftmaxCE(
-    #      lb_pos=0.95,
-    #      lb_neg=0.00005,
-    #  )
-    return model, criteria
+    criteria = SoftmaxCrossEntropyWithOneHot()
+    if mixup_use_kldiv:
+        criteria = KVDivLoss(reduction='batchmean')
+    generator = None
+    if generator_pth is not None:
+        generator = Resnet18(n_classes=n_classes, pre_act=pre_act)
+        state_dict = torch.load(generator_pth)
+        generator.load_state_dict(state_dict)
+        generator.train()
+        generator.cuda()
+        criteria = KVDivLoss(reduction='batchmean')
+    return model, generator, criteria
 
 
 def set_optimizer(model):
@@ -96,60 +116,53 @@ def set_optimizer(model):
     return optim, lr_sheduler
 
 
-def train_one_epoch(model, criteria, dltrain, optim):
-    pass
+def train_one_epoch(
+        model,
+        criteria,
+        dltrain,
+        optim,
+        generator=None
+    ):
+    one_hot = OneHot(n_labels=n_classes)
+    lb_smooth = LabelSmooth(n_labels=n_classes, lb_pos=lb_pos, lb_neg=lb_neg)
+    loss_epoch = []
+    model.train()
+    if generator is not None: generator.train()
+    for _, (ims, lbs) in enumerate(dltrain):
+        ims = ims.cuda()
+        lbs = one_hot(lbs.cuda())
+        # generate labels
+        if generator is not None:
+            with torch.no_grad():
+                lbs = generator(ims).clone()
+                lbs = torch.softmax(lbs, dim=1)
+
+        optim.zero_grad()
+        if use_mixup:
+            bs = ims.size(0)
+            idx = torch.randperm(bs)
+            lam = np.random.beta(mixup_alpha, mixup_alpha)
+            ims_mix = lam * ims + (1.-lam) * ims[idx]
+            lbs_mix = lam * lbs + (1.-lam) * lbs[idx]
+            logits = model(ims_mix)
+            loss = criteria(logits, lbs_mix)
+            #  loss1 = criteria(logits, lbs)
+            #  loss2 = criteria(logits, lbs[idx])
+            #  loss = lam * loss1 + (1.-lam) * loss2
+        else:
+            logits = model(ims)
+            if use_lb_smooth:
+                lbs[lbs == 1] = lb_pos
+                lbs[lbs == 0] = lb_neg
+            loss = criteria(logits, lbs)
+        loss.backward()
+        optim.step()
+        loss_epoch.append(loss.item())
+    loss_avg = sum(loss_epoch) / len(loss_epoch)
+    return loss_avg
 
 
-def train_naive(save_pth):
-    model, criteria = set_model()
-
-    dltrain = get_train_loader(
-        batch_size=batchsize,
-        num_workers=n_workers,
-        dataset=ds_name,
-        pin_memory=False
-    )
-
-    optim, lr_sheduler = set_optimizer(model)
-
-    for e in range(n_epochs):
-        tic = time.time()
-        model.train()
-        lr_sheduler.step()
-        loss_epoch = []
-        for _, (ims, lbs) in enumerate(dltrain):
-            #  lr_sheduler.step()
-            ims = ims.cuda()
-            lbs = lbs.cuda()
-
-            optim.zero_grad()
-            if use_mixup:
-                bs = ims.size(0)
-                idx = torch.randperm(bs)
-                lam = np.random.beta(mixup_alpha, mixup_alpha)
-                ims_mix = lam * ims + (1.-lam) * ims[idx]
-                logits = model(ims_mix)
-                loss1 = criteria(logits, lbs)
-                loss2 = criteria(logits, lbs[idx])
-                loss = lam * loss1 + (1.-lam) * loss2
-            else:
-                logits = model(ims)
-                loss = criteria(logits, lbs)
-            loss.backward()
-            loss_epoch.append(loss.item())
-            optim.step()
-        model.eval()
-        acc = evaluate(model, verbose=False)
-        toc = time.time()
-        msg = 'epoch: {}, loss: {:.4f}, lr: {:.4f}, acc: {:.4f}, time: {:.2f}'.format(
-            e,
-            sum(loss_epoch)/len(loss_epoch),
-            list(optim.param_groups)[0]['lr'],
-            acc,
-            toc - tic
-        )
-        print(msg)
-
+def save_model(model, save_pth):
     model.cpu()
     if hasattr(model, 'module'):
         state_dict = model.module.state_dict()
@@ -158,17 +171,43 @@ def train_naive(save_pth):
     torch.save(state_dict, save_pth)
 
 
-def train_label_refinery():
-    pass
+def train(save_pth, gen_lb_pth=None):
+    model, generator, criteria = set_model(gen_lb_pth)
+
+    optim, lr_sheduler = set_optimizer(model)
+
+    dltrain = get_train_loader(
+        batch_size=batchsize,
+        num_workers=n_workers,
+        dataset=ds_name,
+        pin_memory=False
+    )
+
+    for e in range(n_epochs):
+        tic = time.time()
+
+        lr_sheduler.step()
+        loss_avg = train_one_epoch(model, criteria, dltrain, optim, generator)
+        acc = evaluate(model, verbose=False)
+
+        toc = time.time()
+        msg = 'epoch: {}, loss: {:.4f}, lr: {:.4f}, acc: {:.4f}, time: {:.2f}'.format(
+            e,
+            loss_avg,
+            list(optim.param_groups)[0]['lr'],
+            acc,
+            toc - tic
+        )
+        print(msg)
+    save_model(model, save_pth)
+    print('done')
+    return model
 
 
-def evaluate(model=None, verbose=True):
-    if model is None:
-        model = Resnet18(n_classes=n_classes, pre_act=pre_act)
-        state_dict = torch.load(save_pth)
-        model.load_state_dict(state_dict)
-        model.eval()
-        model.cuda()
+
+def evaluate(model, verbose=True):
+    model.cuda()
+    model.eval()
 
     batchsize = 100
     n_workers = 4
@@ -208,8 +247,24 @@ def evaluate(model=None, verbose=True):
 
 
 def main():
-    train_naive(save_pth)
-    evaluate()
+    save_pth = './res/model_final_naive.pth'
+    model = train(save_pth, None)
+    evaluate(model, verbose=True)
+    # label refinery
+    if lb_refine:
+        print('start label refining')
+        gen_pths = [
+            save_pth,
+        ]
+        save_pths = [
+            './res/model_refine_1.pth',
+        ]
+        for i in range(refine_cycles-1):
+            gen_pths.append('./res/model_refine_{}.pth'.format(i+1))
+            save_pths.append('./res/model_refine_{}.pth'.format(i+2))
+        for gen_pth, save_pth in zip(gen_pths, save_pths):
+            train(save_pth, gen_pth)
+
 
 
 if __name__ == "__main__":
