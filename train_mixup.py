@@ -33,7 +33,7 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 ##=========================
 ds_name = 'cifar10'
 n_classes = 10
-pre_act = False
+pre_act = True
 # dataloader
 batchsize = 256
 n_workers = 8
@@ -58,8 +58,10 @@ use_mixup = True
 mixup_use_kldiv = False
 mixup_alpha = 0.3
 # label refinery
-lb_refine = True
-refine_cycles = 4
+lb_refine = False
+refine_use_mixup = False
+refine_mixup_alpha = 0.3
+refine_cycles = 3
 
 
 def set_model(generator_pth=None):
@@ -121,10 +123,11 @@ def train_one_epoch(
         criteria,
         dltrain,
         optim,
-        generator=None
+        generator=None,
+        use_mixup=False,
+        mixup_alpha=1,
     ):
     one_hot = OneHot(n_labels=n_classes)
-    lb_smooth = LabelSmooth(n_labels=n_classes, lb_pos=lb_pos, lb_neg=lb_neg)
     loss_epoch = []
     model.train()
     if generator is not None: generator.train()
@@ -171,7 +174,7 @@ def save_model(model, save_pth):
     torch.save(state_dict, save_pth)
 
 
-def train(save_pth, gen_lb_pth=None):
+def train(save_pth, use_mixup, mixup_alpha, gen_lb_pth=None):
     model, generator, criteria = set_model(gen_lb_pth)
 
     optim, lr_sheduler = set_optimizer(model)
@@ -187,7 +190,9 @@ def train(save_pth, gen_lb_pth=None):
         tic = time.time()
 
         lr_sheduler.step()
-        loss_avg = train_one_epoch(model, criteria, dltrain, optim, generator)
+        loss_avg = train_one_epoch(
+            model, criteria, dltrain, optim, generator, use_mixup, mixup_alpha
+        )
         acc = evaluate(model, verbose=False)
 
         toc = time.time()
@@ -248,7 +253,7 @@ def evaluate(model, verbose=True):
 
 def main():
     save_pth = './res/model_final_naive.pth'
-    model = train(save_pth, None)
+    model = train(save_pth, use_mixup, mixup_alpha, None)
     evaluate(model, verbose=True)
     # label refinery
     if lb_refine:
@@ -263,7 +268,7 @@ def main():
             gen_pths.append('./res/model_refine_{}.pth'.format(i+1))
             save_pths.append('./res/model_refine_{}.pth'.format(i+2))
         for gen_pth, save_pth in zip(gen_pths, save_pths):
-            train(save_pth, gen_pth)
+            train(save_pth, refine_use_mixup, refine_mixup_alpha, gen_pth)
 
 
 

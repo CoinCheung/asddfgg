@@ -31,10 +31,27 @@ The resnet models for cifar and imagenet have different structures. Cifar models
 
 5. as claimed in the paper of wide resnet, adding dropout to residual path can give a little help. In the implementation of the paper, dropout is added after the relu functions, and the first convolution should not have dropout.
 
+6. BN output: Adding a BN layer at last before the softmax cross entropy loss would boost the performance a little and efficiently.
+
+7. about mixup: 
+* mixing up the label and then compute the cross entropy loss outperforms computing the loss separately and then mixing up the loss, though it seems equal in mathematics.
+
+* alpha depends on the status of overfitting. If the model is very complicated and more prone to overfitting, it is better to use a larger alpha. If the model is very simple, a large alpha will cause underfitting.
+
+* it is completely same to use kl-diversity loss as to use cross entropy with mixup label, or at least for pytorch1.1.
+
+* different alpha has different best cosine annealing remaining lr, though difference is not significant.
+
+* mixup has different effect on different models. The boost of performance on resnetv1 is better than on resnetv2.
+
 
 ### Tricks that does not work 
 1. label smooth: adding label smooth would make the performance a little worse. Maybe the model is not overfitting, and it is just experiencing some underfitting with this trick.
 
-2. dropout: No matter adding dropout to the residual block(before the last residual conv), or before or after the output fc layer, the result would become a little worse.
+2. about dropout:
+* some paper say that dropout conflicts with bn, it is true. we should not add dropout before bn, but we could add it where there is no bn in the following layers.
 
-3. SGDR: 
+* No matter adding dropout to the residual block(before the last residual conv), or before or after the output fc layer, the result would become a little worse.
+
+3. SGDR: It is weird that this trick can never help, even with this simple task of cifar10 classification. I do not know how the paper get this result.
+
