@@ -33,7 +33,7 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 ##=========================
 ds_name = 'cifar10'
 n_classes = 10
-pre_act = True
+pre_act = False
 # dataloader
 batchsize = 256
 n_workers = 8

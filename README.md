@@ -18,6 +18,8 @@ The resnet models for cifar and imagenet have different structures. Cifar models
 
 * The pre-activation model should be end with a bn-relu module.
 
+* Though the paper claims that the pre-activated version is better, here for the 20-layer version, the original resnet v1 is better, especially when the trick of mixup is used.
+
 
 ### Training Tricks
 1. weight decay matters. A small weight decay may cause overfitting (the loss goes low but the test accuracy is not high). `5e-4` is better than `1e-4`.
@@ -51,7 +53,7 @@ The resnet models for cifar and imagenet have different structures. Cifar models
 2. about dropout:
 * some paper say that dropout conflicts with bn, it is true. we should not add dropout before bn, but we could add it where there is no bn in the following layers.
 
-* No matter adding dropout to the residual block(before the last residual conv), or before or after the output fc layer, the result would become a little worse.
+* as for adding dropout to the residual block: it never works to add dropout to the residual block of resnet-v1, no matter which place. But as the paper of resnet-v2 claims, it would be better to add a dropout layer before the last conv layer of each basic block.
 
 3. SGDR: It is weird that this trick can never help, even with this simple task of cifar10 classification. I do not know how the paper get this result.
 
