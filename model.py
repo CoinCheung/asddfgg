@@ -30,7 +30,6 @@ class BasicBlock(nn.Module):
         )
         self.bn2 = BatchNorm2d(out_chan)
         self.relu = nn.ReLU(inplace=True)
-        self.dropout = nn.Dropout(0.3)
         self.downsample = None
         if in_chan != out_chan or stride != 1:
             self.downsample = nn.Sequential(
@@ -49,7 +48,6 @@ class BasicBlock(nn.Module):
         residual = self.conv1(x)
         residual = self.bn1(residual)
         residual = self.relu(residual)
-        residual = self.dropout(residual)
         residual = self.conv2(residual)
         residual = self.bn2(residual)
 
@@ -158,7 +156,7 @@ class BasicBlockPreAct(nn.Module):
             bias=False
         )
         self.bn2 = BatchNorm2d(out_chan)
-        self.dropout = nn.Dropout(0.3)
+        self.dropout = nn.Dropout(0.1)
         self.conv2 = nn.Conv2d(
             out_chan,
             out_chan,
@@ -362,13 +360,17 @@ class Resnet18(nn.Module):
             self.backbone = ResnetPreActBackbone(n_layers=n_layers)
         else:
             self.backbone = ResnetBackbone(n_layers=n_layers)
+        #  self.dropout = nn.Dropout(0.1)
         self.classifier = nn.Linear(64, n_classes)
+        self.bn = nn.BatchNorm1d(n_classes)
 
     def forward(self, x):
         feat = self.backbone(x)[-1]
-        feat = F.avg_pool2d(feat, feat.size()[2:]).squeeze(-1).squeeze(-1)
-        logits = self.classifier(feat)
-        return logits
+        feat = torch.mean(feat, dim=(2, 3))
+        #  feat = self.dropout(feat)
+        feat = self.classifier(feat)
+        feat = self.bn(feat)
+        return feat
 
     def init_weight(self):
         nn.init.kaiming_normal_(
