@@ -57,3 +57,4 @@ The resnet models for cifar and imagenet have different structures. Cifar models
 
 3. SGDR: It is weird that this trick can never help, even with this simple task of cifar10 classification. I do not know how the paper get this result.
 
+4. channel drop: though channel drop seems to be working well in some self-supervised models, it does not work well here.
