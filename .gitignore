@@ -106,12 +106,8 @@ venv.bak/
 *.pth
 dataset/
 res/
-labels.py
-adj.md
 model_new.py
-train.py
 test_res.csv
 *.jpg
 train.log
-train_dynamic_refine.py
 serialize.py
