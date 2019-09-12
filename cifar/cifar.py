@@ -30,7 +30,6 @@ def get_train_loader(batch_size, num_workers, dataset='cifar10', pin_memory=True
         T.RandomCrop((32, 32)),
         T.RandomHorizontalFlip(0.5),
         T.ToTensor(),
-        #  T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
         T.Normalize((0.4914, 0.4822, 0.4465), (0.2023, 0.1994, 0.2010))
     ])
     if dataset == 'cifar10':

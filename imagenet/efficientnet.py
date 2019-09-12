@@ -17,7 +17,7 @@ def round_channels(n_chan, multiplier):
 
 def act_func(x):
     return x * torch.sigmoid(x)
-    # return F.relu(x, inplace=True)
+    #  return F.relu(x, inplace=True)
 
 
 class DropConnect(nn.Module):
@@ -237,6 +237,7 @@ class EfficientNet(nn.Module):
         feat = self.dropout(feat)
         logits = self.fc(feat)
         return logits
+
 
 
 if __name__ == '__main__':

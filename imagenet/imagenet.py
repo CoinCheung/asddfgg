@@ -15,14 +15,14 @@ from autoaugment import ImageNetPolicy
 
 class ImageNet(Dataset):
 
-    def __init__(self, root='./data', mode='train'):
+    def __init__(self, root='./data', mode='train', cropsize=224):
         super(ImageNet, self).__init__()
         self.samples = []
         self.mode = mode
         if mode == 'train':
             with open('./utils/imagenet_class_index.json', 'r') as fr:
                 jobj = json.load(fr)
-            cls_to_id = {v[0]: k for k, v in jobj.items()}
+            cls_to_id = {v[0]: int(k) for k, v in jobj.items()}
             trainpth = osp.join(root, 'train')
             folders = os.listdir(trainpth)
             for fd in folders:
@@ -44,12 +44,12 @@ class ImageNet(Dataset):
                 (impth, labels[idx]) for idx, impth in idx_imgs.items()
             ]
         self.trans_train = T.Compose([
-            T.RandomResizedCrop(224),
+            T.RandomResizedCrop(cropsize),
             T.RandomHorizontalFlip(),
             ImageNetPolicy(),
         ])
         self.trans_val = T.Compose([
-            T.Resize(224),
+            T.Resize(cropsize),
         ])
         self.to_tensor = T.Compose([
             T.ToTensor(),
@@ -59,7 +59,7 @@ class ImageNet(Dataset):
 
     def __getitem__(self, idx):
         impth, label = self.samples[idx]
-        im = Image.open(impth)
+        im = Image.open(impth).convert('RGB')
         if self.mode == 'train':
             im = self.trans_train(im)
         else:
@@ -74,6 +74,16 @@ class ImageNet(Dataset):
 if __name__ == "__main__":
     # 10
     ds = ImageNet(root='./data', mode='train')
-    im, lb = ds[0]
+    im, lb = ds[409548]
     print(im.size())
     print(lb)
+    dltrain = torch.utils.data.DataLoader(
+        ds,
+        shuffle=True,
+        batch_size=256,
+        num_workers=4,
+        pin_memory=True,
+    )
+    for ims, lbs in dltrain:
+        print(ims.size())
+        print(lbs.size())
