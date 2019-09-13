@@ -1,0 +1,244 @@
+epoch: 53, iter: 1400, loss: 4.9401, time: 37.1048, eta: 3 days, 4:57:57
+epoch: 53, iter: 1500, loss: 4.8749, time: 36.9514, eta: 3 days, 4:57:18
+epoch: 53, iter: 1600, loss: 4.9026, time: 36.2469, eta: 3 days, 4:56:35
+epoch: 53, iter: 1700, loss: 4.8587, time: 36.2595, eta: 3 days, 4:55:53
+epoch: 53, iter: 1800, loss: 4.8670, time: 36.3646, eta: 3 days, 4:55:11
+epoch: 53, iter: 1900, loss: 4.8989, time: 36.7535, eta: 3 days, 4:54:31
+epoch: 53, iter: 2000, loss: 4.9205, time: 36.7635, eta: 3 days, 4:53:51
+epoch: 53, iter: 2100, loss: 4.8735, time: 36.7204, eta: 3 days, 4:53:11
+epoch: 53, iter: 2200, loss: 4.8758, time: 36.2992, eta: 3 days, 4:52:28
+epoch: 53, iter: 2300, loss: 4.8665, time: 35.8091, eta: 3 days, 4:51:43
+epoch: 53, iter: 2400, loss: 4.8762, time: 36.5910, eta: 3 days, 4:51:02
+epoch: 53, iter: 2500, loss: 4.8659, time: 36.9469, eta: 3 days, 4:50:24
+epoch: 54, iter: 100, loss: 4.7968, time: 49.2407, eta: 3 days, 4:50:49
+/miniconda/envs/py36/lib/python3.6/site-packages/PIL/TiffImagePlugin.py:804: UserWarning: Corrupt EXIF data.  Expecting to read 4 bytes but only got 0. 
+  warnings.warn(str(msg))
+epoch: 54, iter: 200, loss: 4.8665, time: 43.7227, eta: 3 days, 4:50:48
+epoch: 54, iter: 300, loss: 4.8777, time: 36.4233, eta: 3 days, 4:50:06
+epoch: 54, iter: 400, loss: 4.8733, time: 39.0206, eta: 3 days, 4:49:39
+epoch: 54, iter: 500, loss: 4.8425, time: 39.2717, eta: 3 days, 4:49:13
+epoch: 54, iter: 600, loss: 4.8080, time: 36.5382, eta: 3 days, 4:48:32
+epoch: 54, iter: 700, loss: 4.8502, time: 37.4032, eta: 3 days, 4:47:56
+epoch: 54, iter: 800, loss: 4.8423, time: 37.6487, eta: 3 days, 4:47:21
+epoch: 54, iter: 900, loss: 4.8551, time: 37.2687, eta: 3 days, 4:46:44
+epoch: 54, iter: 1000, loss: 4.8010, time: 37.2951, eta: 3 days, 4:46:07
+epoch: 54, iter: 1100, loss: 4.8098, time: 36.8130, eta: 3 days, 4:45:27
+epoch: 54, iter: 1200, loss: 4.8799, time: 37.0757, eta: 3 days, 4:44:49
+epoch: 54, iter: 1300, loss: 4.8229, time: 36.5361, eta: 3 days, 4:44:08
+epoch: 54, iter: 1400, loss: 4.8491, time: 36.2644, eta: 3 days, 4:43:25
+epoch: 54, iter: 1500, loss: 4.8390, time: 36.4432, eta: 3 days, 4:42:44
+epoch: 54, iter: 1600, loss: 4.8557, time: 36.6168, eta: 3 days, 4:42:03
+epoch: 54, iter: 1700, loss: 4.8157, time: 36.0633, eta: 3 days, 4:41:19
+epoch: 54, iter: 1800, loss: 4.7848, time: 36.1858, eta: 3 days, 4:40:36
+epoch: 54, iter: 1900, loss: 4.8264, time: 36.7485, eta: 3 days, 4:39:56
+epoch: 54, iter: 2000, loss: 4.8136, time: 36.7210, eta: 3 days, 4:39:16
+epoch: 54, iter: 2100, loss: 4.8186, time: 36.4221, eta: 3 days, 4:38:35
+epoch: 54, iter: 2200, loss: 4.8537, time: 35.6626, eta: 3 days, 4:37:49
+epoch: 54, iter: 2300, loss: 4.8883, time: 36.3248, eta: 3 days, 4:37:07
+epoch: 54, iter: 2400, loss: 4.8441, time: 36.6720, eta: 3 days, 4:36:26
+epoch: 54, iter: 2500, loss: 4.8180, time: 35.8665, eta: 3 days, 4:35:42
+epoch: 55, iter: 100, loss: 4.8759, time: 42.5467, eta: 3 days, 4:35:29
+epoch: 55, iter: 200, loss: 4.8585, time: 37.2291, eta: 3 days, 4:34:51
+epoch: 55, iter: 300, loss: 4.8505, time: 38.2194, eta: 3 days, 4:34:20
+epoch: 55, iter: 400, loss: 4.8470, time: 38.1873, eta: 3 days, 4:33:48
+epoch: 55, iter: 500, loss: 4.8619, time: 36.6836, eta: 3 days, 4:33:07
+epoch: 55, iter: 600, loss: 4.8465, time: 39.4369, eta: 3 days, 4:32:42
+epoch: 55, iter: 700, loss: 4.8911, time: 37.6543, eta: 3 days, 4:32:07
+epoch: 55, iter: 800, loss: 4.8579, time: 37.3811, eta: 3 days, 4:31:31
+/miniconda/envs/py36/lib/python3.6/site-packages/PIL/TiffImagePlugin.py:804: UserWarning: Corrupt EXIF data.  Expecting to read 4 bytes but only got 0. 
+  warnings.warn(str(msg))
+epoch: 55, iter: 900, loss: 4.8393, time: 37.2856, eta: 3 days, 4:30:54
+epoch: 55, iter: 1000, loss: 4.8748, time: 37.9155, eta: 3 days, 4:30:20
+epoch: 55, iter: 1100, loss: 4.8381, time: 36.3923, eta: 3 days, 4:29:39
+epoch: 55, iter: 1200, loss: 4.8350, time: 36.8711, eta: 3 days, 4:28:59
+epoch: 55, iter: 1300, loss: 4.8311, time: 35.9425, eta: 3 days, 4:28:15
+epoch: 55, iter: 1400, loss: 4.8725, time: 36.1862, eta: 3 days, 4:27:32
+epoch: 55, iter: 1500, loss: 4.8345, time: 36.7680, eta: 3 days, 4:26:52
+epoch: 55, iter: 1600, loss: 4.8570, time: 36.7461, eta: 3 days, 4:26:13
+epoch: 55, iter: 1700, loss: 4.7750, time: 36.1667, eta: 3 days, 4:25:30
+epoch: 55, iter: 1800, loss: 4.7961, time: 36.0508, eta: 3 days, 4:24:46
+epoch: 55, iter: 1900, loss: 4.8328, time: 36.3940, eta: 3 days, 4:24:04
+epoch: 55, iter: 2000, loss: 4.8421, time: 36.4313, eta: 3 days, 4:23:23
+epoch: 55, iter: 2100, loss: 4.8834, time: 35.9963, eta: 3 days, 4:22:39
+epoch: 55, iter: 2200, loss: 4.8682, time: 36.4022, eta: 3 days, 4:21:57
+epoch: 55, iter: 2300, loss: 4.8160, time: 35.9170, eta: 3 days, 4:21:13
+epoch: 55, iter: 2400, loss: 4.8465, time: 36.0002, eta: 3 days, 4:20:29
+epoch: 55, iter: 2500, loss: 4.8763, time: 36.6281, eta: 3 days, 4:19:49
+epoch: 56, iter: 100, loss: 4.7940, time: 45.0952, eta: 3 days, 4:19:49
+epoch: 56, iter: 200, loss: 4.7961, time: 38.2628, eta: 3 days, 4:19:17
+epoch: 56, iter: 300, loss: 4.8687, time: 36.4483, eta: 3 days, 4:18:36
+epoch: 56, iter: 400, loss: 4.8147, time: 36.1452, eta: 3 days, 4:17:53
+epoch: 56, iter: 500, loss: 4.7990, time: 37.2848, eta: 3 days, 4:17:16
+epoch: 56, iter: 600, loss: 4.8111, time: 36.4477, eta: 3 days, 4:16:34
+epoch: 56, iter: 700, loss: 4.8041, time: 36.4788, eta: 3 days, 4:15:53
+epoch: 56, iter: 800, loss: 4.8695, time: 36.3125, eta: 3 days, 4:15:11
+epoch: 56, iter: 900, loss: 4.8521, time: 37.2893, eta: 3 days, 4:14:34
+epoch: 56, iter: 1000, loss: 4.8256, time: 36.9300, eta: 3 days, 4:13:55
+epoch: 56, iter: 1100, loss: 4.8347, time: 36.4954, eta: 3 days, 4:13:14
+epoch: 56, iter: 1200, loss: 4.7448, time: 36.4276, eta: 3 days, 4:12:33
+epoch: 56, iter: 1300, loss: 4.8228, time: 36.4143, eta: 3 days, 4:11:51
+epoch: 56, iter: 1400, loss: 4.8128, time: 36.5869, eta: 3 days, 4:11:11
+epoch: 56, iter: 1500, loss: 4.8012, time: 36.1721, eta: 3 days, 4:10:28
+/miniconda/envs/py36/lib/python3.6/site-packages/PIL/TiffImagePlugin.py:804: UserWarning: Corrupt EXIF data.  Expecting to read 4 bytes but only got 0. 
+  warnings.warn(str(msg))
+epoch: 56, iter: 1600, loss: 4.8010, time: 36.7411, eta: 3 days, 4:09:48
+epoch: 56, iter: 1700, loss: 4.7626, time: 36.4228, eta: 3 days, 4:09:07
+epoch: 56, iter: 1800, loss: 4.8164, time: 36.9677, eta: 3 days, 4:08:28
+epoch: 56, iter: 1900, loss: 4.8013, time: 36.8436, eta: 3 days, 4:07:49
+epoch: 56, iter: 2000, loss: 4.7877, time: 36.7002, eta: 3 days, 4:07:09
+epoch: 56, iter: 2100, loss: 4.8247, time: 36.4931, eta: 3 days, 4:06:28
+epoch: 56, iter: 2200, loss: 4.7496, time: 36.3709, eta: 3 days, 4:05:46
+epoch: 56, iter: 2300, loss: 4.7885, time: 36.3432, eta: 3 days, 4:05:04
+epoch: 56, iter: 2400, loss: 4.8405, time: 36.6206, eta: 3 days, 4:04:24
+epoch: 56, iter: 2500, loss: 4.7809, time: 36.2710, eta: 3 days, 4:03:42
+epoch: 57, iter: 100, loss: 4.7770, time: 48.8505, eta: 3 days, 4:04:01
+epoch: 57, iter: 200, loss: 4.8258, time: 36.8577, eta: 3 days, 4:03:22
+epoch: 57, iter: 300, loss: 4.8063, time: 39.4690, eta: 3 days, 4:02:56
+epoch: 57, iter: 400, loss: 4.8057, time: 36.7165, eta: 3 days, 4:02:16
+epoch: 57, iter: 500, loss: 4.8140, time: 38.8500, eta: 3 days, 4:01:47
+epoch: 57, iter: 600, loss: 4.7922, time: 38.1782, eta: 3 days, 4:01:15
+epoch: 57, iter: 700, loss: 4.7959, time: 37.6060, eta: 3 days, 4:00:40
+epoch: 57, iter: 800, loss: 4.8311, time: 36.6228, eta: 3 days, 4:00:00
+epoch: 57, iter: 900, loss: 4.8427, time: 36.9534, eta: 3 days, 3:59:21
+epoch: 57, iter: 1000, loss: 4.8092, time: 35.8649, eta: 3 days, 3:58:36
+^CTraceback (most recent call last):
+  File "/miniconda/envs/py36/lib/python3.6/runpy.py", line 193, in _run_module_as_main
+    "__main__", mod_spec)
+  File "/miniconda/envs/py36/lib/python3.6/runpy.py", line 85, in _run_code
+    exec(code, run_globals)
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/distributed/launch.py", line 246, in <module>
+    main()
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/distributed/launch.py", line 239, in main
+    process.wait()
+  File "/miniconda/envs/py36/lib/python3.6/subprocess.py", line 1477, in wait
+    (pid, sts) = self._try_wait(0)
+  File "/miniconda/envs/py36/lib/python3.6/subprocess.py", line 1424, in _try_wait
+    (pid, sts) = os.waitpid(self.pid, wait_flags)
+KeyboardInterrupt
+Exception in thread Thread-58:
+Traceback (most recent call last):
+  File "/miniconda/envs/py36/lib/python3.6/threading.py", line 916, in _bootstrap_inner
+    self.run()
+  File "/miniconda/envs/py36/lib/python3.6/threading.py", line 864, in run
+    self._target(*self._args, **self._kwargs)
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/utils/data/_utils/pin_memory.py", line 21, in _pin_memory_loop
+    r = in_queue.get(timeout=MP_STATUS_CHECK_INTERVAL)
+  File "/miniconda/envs/py36/lib/python3.6/multiprocessing/queues.py", line 113, in get
+    return _ForkingPickler.loads(res)
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/multiprocessing/reductions.py", line 284, in rebuild_storage_fd
+    fd = df.detach()
+  File "/miniconda/envs/py36/lib/python3.6/multiprocessing/resource_sharer.py", line 57, in detach
+    with _resource_sharer.get_connection(self._id) as conn:
+  File "/miniconda/envs/py36/lib/python3.6/multiprocessing/resource_sharer.py", line 87, in get_connection
+    c = Client(address, authkey=process.current_process().authkey)
+  File "/miniconda/envs/py36/lib/python3.6/multiprocessing/connection.py", line 487, in Client
+    c = SocketClient(address)
+  File "/miniconda/envs/py36/lib/python3.6/multiprocessing/connection.py", line 614, in SocketClient
+    s.connect(address)
+FileNotFoundError: [Errno 2] No such file or directory
+
+
+[01;32m[[01;32mroot[32m@79eb90e2e1cd [33m~/learn-projects/classification-baseline/imagenet[32m][0m#Traceback (most recent call last):
+  File "train.py", line 237, in <module>
+    acc1, acc5 = evaluate(ema, dlval)
+  File "train.py", line 226, in main
+    model,
+  File "train.py", line 133, in train
+    optimizer.zero_grad()
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/lr_scheduler.py", line 36, in wrapper
+    return func(*args, **kwargs)
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/rmsprop.py", line 93, in step
+    avg = square_avg.sqrt().add_(group['eps'])
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "train.py", line 237, in <module>
+    acc1, acc5 = evaluate(ema, dlval)
+  File "train.py", line 226, in main
+    model,
+  File "train.py", line 133, in train
+    optimizer.zero_grad()
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/lr_scheduler.py", line 36, in wrapper
+    return func(*args, **kwargs)
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/rmsprop.py", line 86, in step
+    square_avg.mul_(alpha).addcmul_(1 - alpha, grad, grad)
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "train.py", line 237, in <module>
+    acc1, acc5 = evaluate(ema, dlval)
+  File "train.py", line 226, in main
+    model,
+  File "train.py", line 133, in train
+    optimizer.zero_grad()
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/lr_scheduler.py", line 36, in wrapper
+    return func(*args, **kwargs)
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/rmsprop.py", line 98, in step
+    p.data.add_(-group['lr'], buf)
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "train.py", line 237, in <module>
+    acc1, acc5 = evaluate(ema, dlval)
+  File "train.py", line 226, in main
+    model,
+  File "train.py", line 133, in train
+    optimizer.zero_grad()
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/lr_scheduler.py", line 36, in wrapper
+    return func(*args, **kwargs)
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/rmsprop.py", line 97, in step
+    buf.mul_(group['momentum']).addcdiv_(grad, avg)
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "train.py", line 237, in <module>
+    acc1, acc5 = evaluate(ema, dlval)
+  File "train.py", line 226, in main
+    model,
+  File "train.py", line 133, in train
+    optimizer.zero_grad()
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/lr_scheduler.py", line 36, in wrapper
+Traceback (most recent call last):
+    return func(*args, **kwargs)
+  File "train.py", line 237, in <module>
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/rmsprop.py", line 84, in step
+    grad = grad.add(group['weight_decay'], p.data)
+KeyboardInterrupt
+    acc1, acc5 = evaluate(ema, dlval)
+  File "train.py", line 226, in main
+    model,
+  File "train.py", line 133, in train
+    optimizer.zero_grad()
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/lr_scheduler.py", line 36, in wrapper
+    return func(*args, **kwargs)
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/rmsprop.py", line 97, in step
+    buf.mul_(group['momentum']).addcdiv_(grad, avg)
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "train.py", line 237, in <module>
+    acc1, acc5 = evaluate(ema, dlval)
+  File "train.py", line 226, in main
+    model,
+  File "train.py", line 133, in train
+    optimizer.zero_grad()
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/lr_scheduler.py", line 36, in wrapper
+    return func(*args, **kwargs)
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/rmsprop.py", line 86, in step
+    square_avg.mul_(alpha).addcmul_(1 - alpha, grad, grad)
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "train.py", line 237, in <module>
+    acc1, acc5 = evaluate(ema, dlval)
+  File "train.py", line 226, in main
+    model,
+  File "train.py", line 133, in train
+    optimizer.zero_grad()
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/lr_scheduler.py", line 36, in wrapper
+    return func(*args, **kwargs)
+  File "/miniconda/envs/py36/lib/python3.6/site-packages/torch/optim/rmsprop.py", line 86, in step
+    square_avg.mul_(alpha).addcmul_(1 - alpha, grad, grad)
+KeyboardInterrupt
+^C
+[01;32m[[01;32mroot[32m@79eb90e2e1cd [33m~/learn-projects/classification-baseline/imagenet[32m][0m#ps    watch nvidia-si mi
+(B)0[?1049h[1;34r[m[4l[H[JEvery 2.0s: nvidia-smi[1;129HFri Sep 13 12:34:41 2019[3;1HFri Sep 13 12:34:41 2019[1B+-----------------------------------------------------------------------------+[1B| NVIDIA-SMI 418.74[7CDriver Version: 418.74[7CCUDA Version: 10.1     |[1B|-------------------------------+----------------------+----------------------+[1B| GPU  Name[7;20HPersistence-M| Bus-Id[7;49HDisp.A | Volatile Uncorr. ECC |[1B| Fan  Temp  Perf  Pwr:Usage/Cap|[8;43HMemory-Usage | GPU-Util  Compute M. |[1B|===============================+======================+======================|[1B|   0  GeForce RTX 208...  Off  | 00000000:1A:00.0 Off |[10;75HN/A |[1B| 29%   38C    P8    21W / 250W |   1335MiB / 10989MiB |[6C0%[6CDefault |[1B+-------------------------------+----------------------+----------------------+[1B|   1  GeForce RTX 208...  Off  | 00000000:1B:00.0 Off |[13;75HN/A |[1B| 34%   46C    P8    19W / 250W |     10MiB / 10989MiB |[6C0%[6CDefault |[1B+-------------------------------+----------------------+----------------------+[1B|   2  GeForce RTX 208...  Off  | 00000000:1D:00.0 Off |[16;75HN/A |[1B| 35%   47C    P8     3W / 250W |     10MiB / 10989MiB |[6C0%[6CDefault |[1B+-------------------------------+----------------------+----------------------+[1B|   3  GeForce RTX 208...  Off  | 00000000:1E:00.0 Off |[19;75HN/A |[1B| 34%   45C    P8    20W / 250W |     10MiB / 10989MiB |[6C0%[6CDefault |[1B+-------------------------------+----------------------+----------------------+[1B|   4  GeForce RTX 208...  Off  | 00000000:3D:00.0 Off |[22;75HN/A |[1B| 35%   47C    P8    32W / 250W |     10MiB / 10989MiB |[6C0%[6CDefault |[1B+-------------------------------+----------------------+----------------------+[1B|   5  GeForce RTX 208...  Off  | 00000000:3E:00.0 Off |[25;75HN/A |[1B| 35%   47C    P8    25W / 250W |     10MiB / 10989MiB |[6C0%[6CDefault |[1B+-------------------------------+----------------------+----------------------+[1B|   6  GeForce RTX 208...  Off  | 00000000:41:00.0 Off |[28;75HN/A |[1B| 34%   45C    P8    12W / 250W |     10MiB / 10989MiB |[6C0%[6CDefault |[1B+-------------------------------+----------------------+----------------------+[1B|   7  GeForce RTX 208...  Off  | 00000000:42:00.0 Off |[31;75HN/A |[1B| 39%   53C    P2    81W / 250W |   1705MiB / 10989MiB |[6C0%[6CDefault |[1B+-------------------------------+----------------------+----------------------+[34;152H[1;147H3[3;19H3[11;10H7[3B5[17;4H4%   46[20;4H3%   44[23;4H4%   46[3B6[29;23H3[32;4H8%   52[32;23H0[34;152H[1;147H5[3;19H5[14;4H3%   44[3B5[6B5[26;4H4[3B3%   44[29;23H6[32;4H7%   51[34;152H[34;1H[?1049l[?1l>[01;32m[[01;32mroot[32m@79eb90e2e1cd [33m~/learn-projects/classification-baseline/imagenet[32m][0m#sh cfg      sh dist_train.sh 
+epoch: 1, iter: 100, loss: 6.9242, time: 26.81, eta: 2 days, 16:33:50
+epoch: 1, iter: 200, loss: 6.7463, time: 24.67, eta: 2 days, 14:17:20
+epoch: 1, iter: 300, loss: 6.5555, time: 24.68, eta: 2 days, 13:31:38
+epoch: 1, iter: 400, loss: 6.3902, time: 24.74, eta: 2 days, 13:10:48
+epoch: 1, iter: 500, loss: 6.2354, time: 24.67, eta: 2 days, 12:56:03

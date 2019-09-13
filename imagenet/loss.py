@@ -7,9 +7,14 @@ import torch.nn as nn
 
 
 class LabelSmoothSoftmaxCE(nn.Module):
+    '''
+    according to the paper:
+        lb_pos = 1 - sigma
+        lb_neg = sigma / n_classes
+    '''
     def __init__(self,
                  lb_pos=0.9,
-                 lb_neg=0.005,
+                 lb_neg=0.00001,
                  reduction='mean',
                  lb_ignore=255,
                  ):

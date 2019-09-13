@@ -1,33 +1,45 @@
 import copy
 import torch
-import torch.distributed as dist
 
 
 class EMA(object):
     def __init__(self, model, alpha):
         self.model = model
         self.alpha = alpha
-        self.state_dict = copy.deepcopy(model.state_dict())
+        self.state = copy.deepcopy(model.state_dict())
         self.param_keys = [k for k, _ in self.model.named_parameters()]
         self.buffer_keys = [
-            k for k in self.state_dict.keys() if not k in self.param_keys
+            k for k in self.state.keys() if not k in self.param_keys
         ]
 
     def update_params(self):
         md = self.model.state_dict()
         for name in self.param_keys:
-            s, m = self.state_dict[name], md[name]
-            self.state_dict[name] = self.alpha * s + (1-self.alpha) * m
+            s, m = self.state[name], md[name]
+            self.state[name] = self.alpha * s + (1-self.alpha) * m
         self.model.load_state_dict(md)
 
     def update_buffer(self):
         md = self.model.state_dict()
         for name in self.buffer_keys:
-            self.state_dict[name] = md[name]
+            self.state[name] = md[name]
 
     def save_model(self, path):
-        if dist.is_initialized() and dist.get_rank() != 0: return
-        torch.save(self.state_dict, path)
+        torch.save(self.state, path)
+
+    def state_dict(self):
+        state = dict(alpha=self.alpha,
+                     state_dict=self.state,
+                     param_keys=self.param_keys,
+                     buffer_keys=self.buffer_keys,)
+        return state
+
+    def load_state_dict(self, state):
+        self.alpha = state['alpha']
+        self.state = state['state_dict']
+        self.param_keys = state['param_keys']
+        self.buffer_keys = state['buffer_keys']
+
 
 
 

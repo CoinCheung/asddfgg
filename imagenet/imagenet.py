@@ -49,7 +49,7 @@ class ImageNet(Dataset):
             ImageNetPolicy(),
         ])
         self.trans_val = T.Compose([
-            T.Resize(cropsize),
+            T.Resize((cropsize, cropsize)),
         ])
         self.to_tensor = T.Compose([
             T.ToTensor(),

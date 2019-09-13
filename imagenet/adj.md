@@ -1,3 +1,4 @@
+label smooth
 1. 初始化方式 
 1. last gamma = 0
 

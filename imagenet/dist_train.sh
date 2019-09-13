@@ -1,8 +1,8 @@
 
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
-export CUDA_VISIBLE_DEVICES=0,1
-N_GPUS=2
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+N_GPUS=8
 PORT=23365
 
 export num_of_gpus=$N_GPUS

@@ -10,6 +10,7 @@ from imagenet import ImageNet
 from lr_scheduler import WarmupExpLrScheduler
 from meters import TimeMeter, AvgMeter
 from ema import EMA
+from checkpoint import save_ckpt, load_ckpt
 
 
 model_type = 'b0'
@@ -21,18 +22,30 @@ n_train_imgs = 1281167
 n_epoches = 350
 lr0 = (0.016 / 256) * batchsize
 epoch_per_eval = 50
+epoch_per_ckpt = 40
 ema_alpha = 0.9999
 
 
 def set_model():
     model = EfficientNet(model_type=model_type, n_classes=1000)
-    ## TODO: official use label smooth
-    criteria = nn.CrossEntropyLoss()
+    for name, mod in model.named_modules():
+        if isinstance(mod, (nn.Conv2d, )):
+            nn.init.kaiming_normal_(
+                mod.weight,
+                a=0,
+                mode='fan_out',
+                nonlinearity='leaky_relu')
+            if not mod.bias is None: nn.init.constant_(mod.bias, 0)
+        elif isinstance(mod, (nn.Linear, )):
+            nn.init.xavier_normal_(mod.weight)
+            if not mod.bias is None: nn.init.constant_(mod.bias, 0)
     model.cuda()
-    criteria.cuda()
+    ## TODO: official use label smooth
     local_rank = dist.get_rank()
     model = nn.parallel.DistributedDataParallel(
         model, device_ids=[local_rank, ], output_device=local_rank)
+    criteria = nn.CrossEntropyLoss()
+    criteria.cuda()
     return model, criteria
 
 
@@ -132,10 +145,11 @@ def train(
         if (it+1) % 100 == 0:
             t_intv, eta = time_meter.get()
             loss_avg, _ = loss_meter.get()
-            msg = 'epoch: {}, iter: {}, loss: {:.4f}, time: {:.4f}, eta: {}'.format(
+            msg = 'epoch: {}, iter: {}, loss: {:.4f}, time: {:.2f}, eta: {}'.format(
                 ep+1, it+1, loss_avg, t_intv, eta
             )
-            print(msg)
+            if dist.get_rank() == 0:
+                print(msg)
     ema.update_buffer()
 
 
@@ -161,16 +175,16 @@ def eval_model(model, dlval):
             match = (rank_preds == lbs.unsqueeze(1))
             matches.append(match)
     matches = torch.cat(matches, dim=0).float()
-    n_correct_rank1 = matches[:, :1].sum(dim=1)
-    n_correct_rank5 = matches[:, :1].sum(dim=1)
-    n_samples = torch.tensor(matches.size(0)).float()
+    n_correct_rank1 = matches[:, :1].float().sum().cuda()
+    n_correct_rank5 = matches[:, :1].float().sum().cuda()
+    n_samples = torch.tensor(matches.size(0)).float().cuda()
     dist.all_reduce(n_correct_rank1, dist.ReduceOp.SUM)
     dist.all_reduce(n_correct_rank5, dist.ReduceOp.SUM)
     dist.all_reduce(n_samples, dist.ReduceOp.SUM)
     acc_rank1 = n_correct_rank1 / n_samples
     acc_rank5 = n_correct_rank5 / n_samples
 
-    return acc_rank1, acc_rank5
+    return acc_rank1.item(), acc_rank5.item()
 
 
 def parse_args():
@@ -179,6 +193,10 @@ def parse_args():
                        dest='local_rank',
                        type=int,
                        default=-1,)
+    parse.add_argument('--ckpt',
+                       dest='ckpt',
+                       type=str,
+                       default=None,)
     return parse.parse_args()
 
 
@@ -204,7 +222,12 @@ def main():
 
     time_meter, loss_meter = set_meters()
 
-    for ep in range(n_epoches):
+    ep_start = 0
+    if args.ckpt is not None:
+        state = load_ckpt(args.ckpt, model, optimizer, lr_schdlr, ema)
+        model, optimizer, lr_schdlr, ema, ep_start = state
+
+    for ep in range(ep_start, n_epoches):
         train(
             ep,
             model,
@@ -217,8 +240,16 @@ def main():
             loss_meter)
         if (ep+1) % epoch_per_eval == 0:
             ## TODO: ema evaluation, 官方连bn的buffer参数都给ema了
+            if dist.get_rank() == 0: print('eval model ...')
             acc1, acc5 = evaluate(ema, dlval)
-            print('epoch: {}, acc1: {}, acc5: {}'.format(ep+1, acc1, acc5))
+            if dist.get_rank() == 0:
+                print('epoch: {}, acc1: {:.4f}, acc5: {:.4f}'.format(ep+1, acc1, acc5))
+        if (ep+1) % epoch_per_ckpt == 0 and dist.get_rank() == 0:
+            ckpt_pth = './output/checkpoint_{}.pth'.format(ep)
+            save_ckpt(ckpt_pth, ep, model, lr_schdlr, optimizer, ema)
+
+    if dist.get_rank() == 0:
+        ema.save_model('./output/final_model.pth')
 
 
 if __name__ == '__main__':
