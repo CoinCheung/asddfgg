@@ -4,9 +4,10 @@ import argparse
 import torch
 import torch.nn as nn
 import torch.distributed as dist
+from apex import amp
 
 from efficientnet import EfficientNet
-from imagenet import ImageNet
+from imagenet.imagenet import ImageNet
 from lr_scheduler import WarmupExpLrScheduler
 from meters import TimeMeter, AvgMeter
 from ema import EMA
@@ -16,12 +17,12 @@ from checkpoint import save_ckpt, load_ckpt
 model_type = 'b0'
 cropsize = 224
 n_gpus = int(os.environ['num_of_gpus'])
-bs_per_gpu = 64
+bs_per_gpu = 256
 batchsize = bs_per_gpu * n_gpus
 n_train_imgs = 1281167
 n_epoches = 350
 lr0 = (0.016 / 256) * batchsize
-epoch_per_eval = 50
+epoch_per_eval = 5
 epoch_per_ckpt = 40
 ema_alpha = 0.9999
 
@@ -41,17 +42,14 @@ def set_model():
             if not mod.bias is None: nn.init.constant_(mod.bias, 0)
     model.cuda()
     ## TODO: official use label smooth
-    local_rank = dist.get_rank()
-    model = nn.parallel.DistributedDataParallel(
-        model, device_ids=[local_rank, ], output_device=local_rank)
     criteria = nn.CrossEntropyLoss()
     criteria.cuda()
     return model, criteria
 
 
 def set_dataloader(cropsize):
-    dstrain = ImageNet(root='./data', mode='train', cropsize=cropsize)
-    dsval = ImageNet(root='./data', mode='val', cropsize=cropsize)
+    dstrain = ImageNet(root='./imagenet', mode='train', cropsize=cropsize)
+    dsval = ImageNet(root='./imagenet', mode='val', cropsize=cropsize)
     sampler_train = torch.utils.data.distributed.DistributedSampler(dstrain)
     sampler_val = torch.utils.data.distributed.DistributedSampler(dsval)
     dltrain = torch.utils.data.DataLoader(
@@ -85,10 +83,16 @@ def set_optimizer(model):
         {'params': non_bn_params},
         {'params': bn_params, 'weight_decay': 0},
     ]
+    #  optimizer = torch.optim.SGD(
+    #      params_list,
+    #      lr=lr0,
+    #      weight_decay=1e-5,
+    #      momentum=0.9
+    #  )
     optimizer = torch.optim.RMSprop(
         params_list,
         lr=lr0,
-        #  alpha=,
+        alpha=0.9,
         eps=1e-3,
         weight_decay=1e-5,
         momentum=0.9
@@ -106,6 +110,13 @@ def set_optimizer(model):
     )
     ema = EMA(model, ema_alpha)
     return optimizer, lr_scheduler, ema
+
+def set_fp16(model, optimizer):
+    model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
+    local_rank = dist.get_rank()
+    model = nn.parallel.DistributedDataParallel(
+        model, device_ids=[local_rank, ], output_device=local_rank)
+    return model, optimizer
 
 
 def set_meters():
@@ -134,10 +145,11 @@ def train(
         logits = model(ims)
         loss = criteria(logits, lbs)
         optimizer.zero_grad()
-        loss.backward()
+        with amp.scale_loss(loss, optimizer) as scaled_loss:
+            scaled_loss.backward()
         optimizer.step()
         lr_schdlr.step()
-        ema.update_params()
+        #  ema.update_params()
 
         time_meter.update()
         loss_meter.update(loss.item())
@@ -145,17 +157,17 @@ def train(
         if (it+1) % 100 == 0:
             t_intv, eta = time_meter.get()
             loss_avg, _ = loss_meter.get()
-            msg = 'epoch: {}, iter: {}, loss: {:.4f}, time: {:.2f}, eta: {}'.format(
-                ep+1, it+1, loss_avg, t_intv, eta
+            lr = ['{:.4f}'.format(el) for el in lr_schdlr.get_lr()]
+            msg = 'epoch: {}, iter: {}, loss: {:.4f}, lr: {}, time: {:.2f}, eta: {}'.format(
+                ep+1, it+1, loss_avg, lr, t_intv, eta
             )
-            if dist.get_rank() == 0:
-                print(msg)
-    ema.update_buffer()
+            if dist.get_rank() == 0: print(msg)
+    #  ema.update_buffer()
 
 
 def evaluate(ema, dlval):
     org_states = ema.model.state_dict()
-    ema.model.load_state_dict(ema.state_dict)
+    ema.model.load_state_dict(ema.state)
     acc1, acc5 = eval_model(ema.model, dlval)
     ema.model.load_state_dict(org_states)
     return acc1, acc5
@@ -216,9 +228,11 @@ def main():
 
     model, criteria = set_model()
 
-    dltrain, dlval = set_dataloader(cropsize=cropsize)
-
     optimizer, lr_schdlr, ema = set_optimizer(model)
+
+    model, optimizer = set_fp16(model, optimizer)
+
+    dltrain, dlval = set_dataloader(cropsize=cropsize)
 
     time_meter, loss_meter = set_meters()
 
@@ -241,7 +255,8 @@ def main():
         if (ep+1) % epoch_per_eval == 0:
             ## TODO: ema evaluation, 官方连bn的buffer参数都给ema了
             if dist.get_rank() == 0: print('eval model ...')
-            acc1, acc5 = evaluate(ema, dlval)
+            #  acc1, acc5 = evaluate(ema, dlval)
+            acc1, acc5 = eval_model(model, dlval)
             if dist.get_rank() == 0:
                 print('epoch: {}, acc1: {:.4f}, acc5: {:.4f}'.format(ep+1, acc1, acc5))
         if (ep+1) % epoch_per_ckpt == 0 and dist.get_rank() == 0:

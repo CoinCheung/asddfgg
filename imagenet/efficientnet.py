@@ -16,8 +16,8 @@ def round_channels(n_chan, multiplier):
 
 
 def act_func(x):
-    return x * torch.sigmoid(x)
-    #  return F.relu(x, inplace=True)
+    #  return x * torch.sigmoid(x)
+    return F.relu(x, inplace=True)
 
 
 class DropConnect(nn.Module):

@@ -15,7 +15,7 @@ def save_ckpt(ckpt_pth, ep, model, lr_scheduler, optimizer, ema):
 
 
 def load_ckpt(ckpt_pth, model, optimizer, lr_schdlr, ema):
-    state = torch.load(ckpt_pth)
+    state = torch.load(ckpt_pth, map_location='cpu')
     model.load_state_dict(state['model_state_dict'])
     optimizer.load_state_dict(state['optimizer_state_dict'])
     lr_schdlr.load_state_dict(state['lr_scheduler_state_dict'])

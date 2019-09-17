@@ -1,3 +1,11 @@
+看是否是imagenet的randomresizedcrop的问题, 原版用的是直接resize了
+
+ce + relu + no ema + fp16
+
+inplace-bn再加速
+
+不行就上sgd: 
+
 label smooth
 1. 初始化方式 
 1. last gamma = 0
@@ -19,3 +27,7 @@ mixup:
 
 
 5. rmsprob 的alpha设成0
+
+
+TODO: 
+lr scheduler和fp16 的顺序

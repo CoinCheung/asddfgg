@@ -1,0 +1,4 @@
+screenlog.*
+output
+__pycache__
+imagenet/data

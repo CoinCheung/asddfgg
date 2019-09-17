@@ -25,6 +25,7 @@ class EMA(object):
             self.state[name] = md[name]
 
     def save_model(self, path):
+        model_state = {k.replace('.module', ''): v for k,v in self.state.items()}
         torch.save(self.state, path)
 
     def state_dict(self):
