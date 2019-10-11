@@ -23,6 +23,13 @@ class TimeMeter(object):
         self.st = self.curr
         return interv, eta
 
+    def state_dict(self):
+        state = dict(iter=self.iter,)
+        return state
+
+    def load_state_dict(self, state):
+        self.iter = state['iter']
+
 
 class AvgMeter(object):
 
@@ -39,3 +46,11 @@ class AvgMeter(object):
         global_avg = sum(self.global_seq) / len(self.global_seq)
         self.seq = []
         return avg, global_avg
+
+    def state_dict(self):
+        state = dict(curr_seq=self.seq, global_seq=self.global_seq,)
+        return state
+
+    def load_state_dict(self, state):
+        self.seq = state['curr_seq']
+        self.global_seq = state['global_seq']

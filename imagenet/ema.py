@@ -17,7 +17,9 @@ class EMA(object):
         for name in self.param_keys:
             s, m = self.state[name], md[name]
             self.state[name] = self.alpha * s + (1-self.alpha) * m
-        self.model.load_state_dict(md)
+        for name in self.buffer_keys:
+            s, m = self.state[name], md[name]
+            self.state[name] = self.alpha * s + (1-self.alpha) * m
 
     def update_buffer(self):
         md = self.model.state_dict()
@@ -37,7 +39,7 @@ class EMA(object):
 
     def load_state_dict(self, state):
         self.alpha = state['alpha']
-        self.state = state['state_dict']
+        self.state = {k: v.cuda() for k, v in state['state_dict'].items()}
         self.param_keys = state['param_keys']
         self.buffer_keys = state['buffer_keys']
 

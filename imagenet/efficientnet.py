@@ -8,6 +8,13 @@ import torch.nn.functional as F
 ## TODO :use swish rather than relu
 
 
+#  from torch.nn import BatchNorm2d
+def BatchNorm2d(out_chan, momentum=0.1, eps=1e-3):
+    return nn.SyncBatchNorm.convert_sync_batchnorm(
+        nn.BatchNorm2d(out_chan, momentum=momentum, eps=eps)
+    )
+
+
 def round_channels(n_chan, multiplier):
     new_chan = n_chan * multiplier
     new_chan = max(8, int(new_chan + 4) // 8 * 8)
@@ -47,7 +54,7 @@ class ConvBNAct(nn.Module):
             stride=stride,
             padding=padding,
             bias=False)
-        self.bn = nn.BatchNorm2d(out_chan, momentum=0.01, eps=1e-3)
+        self.bn = BatchNorm2d(out_chan, momentum=0.01, eps=1e-3)
 
     def forward(self, x):
         feat = self.conv(x)
@@ -73,7 +80,7 @@ class MBConv(nn.Module):
                 stride=1,
                 bias=False,
             )
-            self.expand_bn = nn.BatchNorm2d(
+            self.expand_bn = BatchNorm2d(
                 expand_chan, momentum=0.01, eps=1e-3)
         n_pad = (ks-1)//2
         self.dw_conv = nn.Conv2d(
@@ -85,7 +92,7 @@ class MBConv(nn.Module):
             stride=stride,
             bias=False
         )
-        self.dw_bn = nn.BatchNorm2d(expand_chan, momentum=0.01, eps=1e-3)
+        self.dw_bn = BatchNorm2d(expand_chan, momentum=0.01, eps=1e-3)
         self.use_se = False
         if se_ratio != 0:
             self.use_se = True
@@ -99,7 +106,7 @@ class MBConv(nn.Module):
             kernel_size=1,
             bias=False
         )
-        self.proj_bn = nn.BatchNorm2d(out_chan, momentum=0.01, eps=1e-3)
+        self.proj_bn = BatchNorm2d(out_chan, momentum=0.01, eps=1e-3)
         self.skip = skip and (in_chan == out_chan) and (stride == 1)
         self.drop_connect = DropConnect(drop_connect_ratio)
 

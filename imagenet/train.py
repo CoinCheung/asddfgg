@@ -17,14 +17,19 @@ from checkpoint import save_ckpt, load_ckpt
 model_type = 'b0'
 cropsize = 224
 n_gpus = int(os.environ['num_of_gpus'])
+n_workers = 4
 bs_per_gpu = 256
 batchsize = bs_per_gpu * n_gpus
 n_train_imgs = 1281167
 n_epoches = 350
-lr0 = (0.016 / 256) * batchsize
-epoch_per_eval = 5
-epoch_per_ckpt = 40
+lr0 = (0.016 / 256) * bs_per_gpu
+#  lr0 = (0.016 / 256) * batchsize
+epoch_per_eval = 10
+epoch_per_ckpt = 50
 ema_alpha = 0.9999
+
+
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 
 def set_model():
@@ -56,7 +61,7 @@ def set_dataloader(cropsize):
         dstrain,
         sampler=sampler_train,
         batch_size=bs_per_gpu,
-        num_workers=4,
+        num_workers=n_workers,
         pin_memory=True,
         drop_last=True,
     )
@@ -65,7 +70,7 @@ def set_dataloader(cropsize):
         shuffle=False,
         sampler=sampler_val,
         batch_size=bs_per_gpu,
-        num_workers=4,
+        num_workers=n_workers,
         pin_memory=True,
         drop_last=False,
     )
@@ -97,7 +102,6 @@ def set_optimizer(model):
         weight_decay=1e-5,
         momentum=0.9
     )
-    # TODO: chack implementation of this curve
     n_iters_per_epoch = n_train_imgs // batchsize
     lr_scheduler = WarmupExpLrScheduler(
         optimizer,
@@ -108,15 +112,14 @@ def set_optimizer(model):
         ## TODO: check warmup start ratio in the official
         warmup_ratio=1e-2
     )
-    ema = EMA(model, ema_alpha)
-    return optimizer, lr_scheduler, ema
+    return optimizer, lr_scheduler
 
-def set_fp16(model, optimizer):
-    model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
+
+def set_dist(model):
     local_rank = dist.get_rank()
     model = nn.parallel.DistributedDataParallel(
         model, device_ids=[local_rank, ], output_device=local_rank)
-    return model, optimizer
+    return model
 
 
 def set_meters():
@@ -136,8 +139,8 @@ def train(
         ema,
         time_meter,
         loss_meter):
-    model.train()
     dltrain.sampler.set_epoch(ep)
+    model.train()
     for it, (ims, lbs) in enumerate(dltrain):
         ims = ims.cuda()
         lbs = lbs.cuda()
@@ -145,11 +148,12 @@ def train(
         logits = model(ims)
         loss = criteria(logits, lbs)
         optimizer.zero_grad()
+        #  loss.backward()
         with amp.scale_loss(loss, optimizer) as scaled_loss:
             scaled_loss.backward()
         optimizer.step()
         lr_schdlr.step()
-        #  ema.update_params()
+        ema.update_params()
 
         time_meter.update()
         loss_meter.update(loss.item())
@@ -157,8 +161,8 @@ def train(
         if (it+1) % 100 == 0:
             t_intv, eta = time_meter.get()
             loss_avg, _ = loss_meter.get()
-            lr = ['{:.4f}'.format(el) for el in lr_schdlr.get_lr()]
-            msg = 'epoch: {}, iter: {}, loss: {:.4f}, lr: {}, time: {:.2f}, eta: {}'.format(
+            lr = lr0 * lr_schdlr.get_lr_ratio()
+            msg = 'epoch: {}, iter: {}, loss: {:.4f}, lr: {:.4f}, time: {:.2f}, eta: {}'.format(
                 ep+1, it+1, loss_avg, lr, t_intv, eta
             )
             if dist.get_rank() == 0: print(msg)
@@ -188,11 +192,18 @@ def eval_model(model, dlval):
             matches.append(match)
     matches = torch.cat(matches, dim=0).float()
     n_correct_rank1 = matches[:, :1].float().sum().cuda()
-    n_correct_rank5 = matches[:, :1].float().sum().cuda()
+    n_correct_rank5 = matches[:, :5].float().sum().cuda()
     n_samples = torch.tensor(matches.size(0)).float().cuda()
+    #  print('n_correct_rank1', n_correct_rank1)
+    #  print('n_correct_rank5', n_correct_rank5)
+    #  print('n_samples', n_samples)
     dist.all_reduce(n_correct_rank1, dist.ReduceOp.SUM)
     dist.all_reduce(n_correct_rank5, dist.ReduceOp.SUM)
     dist.all_reduce(n_samples, dist.ReduceOp.SUM)
+    #  print('sum_n_correct_rank1', n_correct_rank1)
+    #  print('sum_n_correct_rank5', n_correct_rank5)
+    #  print('sum_n_samples', n_samples)
+    #  print('========')
     acc_rank1 = n_correct_rank1 / n_samples
     acc_rank5 = n_correct_rank5 / n_samples
 
@@ -228,9 +239,13 @@ def main():
 
     model, criteria = set_model()
 
-    optimizer, lr_schdlr, ema = set_optimizer(model)
+    optimizer, lr_schdlr = set_optimizer(model)
 
-    model, optimizer = set_fp16(model, optimizer)
+    model, optimizer = amp.initialize(model, optimizer, opt_level='O1')
+
+    model = set_dist(model)
+
+    ema = EMA(model, ema_alpha)
 
     dltrain, dlval = set_dataloader(cropsize=cropsize)
 
@@ -238,8 +253,8 @@ def main():
 
     ep_start = 0
     if args.ckpt is not None:
-        state = load_ckpt(args.ckpt, model, optimizer, lr_schdlr, ema)
-        model, optimizer, lr_schdlr, ema, ep_start = state
+        state = load_ckpt(args.ckpt, model, optimizer, lr_schdlr, ema, time_meter, loss_meter)
+        model, optimizer, lr_schdlr, ema, ep_start, time_meter, loss_meter = state
 
     for ep in range(ep_start, n_epoches):
         train(
@@ -253,15 +268,16 @@ def main():
             time_meter,
             loss_meter)
         if (ep+1) % epoch_per_eval == 0:
-            ## TODO: ema evaluation, 官方连bn的buffer参数都给ema了
             if dist.get_rank() == 0: print('eval model ...')
-            #  acc1, acc5 = evaluate(ema, dlval)
+            acc1_ema, acc5_ema = evaluate(ema, dlval)
             acc1, acc5 = eval_model(model, dlval)
             if dist.get_rank() == 0:
                 print('epoch: {}, acc1: {:.4f}, acc5: {:.4f}'.format(ep+1, acc1, acc5))
+                print('epoch: {}, ema_acc1: {:.4f}, ema_acc5: {:.4f}'.format(ep+1, acc1_ema, acc5_ema))
         if (ep+1) % epoch_per_ckpt == 0 and dist.get_rank() == 0:
-            ckpt_pth = './output/checkpoint_{}.pth'.format(ep)
-            save_ckpt(ckpt_pth, ep, model, lr_schdlr, optimizer, ema)
+            ckpt_pth = './output/checkpoint_{}.pth'.format(ep+1)
+            save_ckpt(ckpt_pth, ep+1, model, lr_schdlr, optimizer, ema, time_meter, loss_meter)
+        torch.cuda.empty_cache()
 
     if dist.get_rank() == 0:
         ema.save_model('./output/final_model.pth')
