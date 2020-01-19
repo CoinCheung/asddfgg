@@ -1,8 +1,8 @@
 
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
-export CUDA_VISIBLE_DEVICES=4,5,6,7
-N_GPUS=4
+export CUDA_VISIBLE_DEVICES=0,1 #,4,5,6,7
+N_GPUS=2
 PORT=23365
 ckpt=output/checkpoint_135.pth
 

@@ -7,7 +7,11 @@ ce + relu + no ema + fp16
 
 2. 加上ema
 
-关于前30个epoch没有效果: 1. 减小学习率为原来一半; 2. 使用sync-bn
+关于前30个epoch没有效果: 
+* 减小学习率为原来一半;  -- 没用
+* 使用sync-bn  -- 没用
+* 去掉ema
+
 
 3. 看使用h-swish能不能爆内存
 

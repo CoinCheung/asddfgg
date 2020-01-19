@@ -1,5 +1,7 @@
 import os
 import argparse
+import random
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -24,12 +26,18 @@ n_train_imgs = 1281167
 n_epoches = 350
 lr0 = (0.016 / 256) * bs_per_gpu
 #  lr0 = (0.016 / 256) * batchsize
+warmup_ratio = 1
 epoch_per_eval = 10
 epoch_per_ckpt = 50
 ema_alpha = 0.9999
 
 
 torch.multiprocessing.set_sharing_strategy('file_system')
+torch.manual_seed(123)
+torch.cuda.manual_seed(123)
+np.random.seed(123)
+random.seed(123)
+torch.backends.cudnn.deterministic = True
 
 
 def set_model():
@@ -110,7 +118,7 @@ def set_optimizer(model):
         warmup_iter=n_iters_per_epoch * 5,
         warmup='exp',
         ## TODO: check warmup start ratio in the official
-        warmup_ratio=1e-2
+        warmup_ratio=warmup_ratio
     )
     return optimizer, lr_scheduler
 
@@ -158,6 +166,7 @@ def train(
         time_meter.update()
         loss_meter.update(loss.item())
 
+        if (it+1) % 200 == 0: return
         if (it+1) % 100 == 0:
             t_intv, eta = time_meter.get()
             loss_avg, _ = loss_meter.get()
@@ -166,14 +175,16 @@ def train(
                 ep+1, it+1, loss_avg, lr, t_intv, eta
             )
             if dist.get_rank() == 0: print(msg)
-    #  ema.update_buffer()
+    ema.update_buffer()
 
 
 def evaluate(ema, dlval):
-    org_states = ema.model.state_dict()
-    ema.model.load_state_dict(ema.state)
-    acc1, acc5 = eval_model(ema.model, dlval)
-    ema.model.load_state_dict(org_states)
+    #  org_states = ema.model.state_dict()
+    import copy
+    model = copy.deepcopy(ema.model)
+    model.load_state_dict(ema.state)
+    acc1, acc5 = eval_model(model, dlval)
+    #  ema.model.load_state_dict(org_states)
     return acc1, acc5
 
 
@@ -267,10 +278,11 @@ def main():
             ema,
             time_meter,
             loss_meter)
-        if (ep+1) % epoch_per_eval == 0:
+        #  if (ep+1) % epoch_per_eval == 0:
+        if True:
             if dist.get_rank() == 0: print('eval model ...')
-            acc1_ema, acc5_ema = evaluate(ema, dlval)
             acc1, acc5 = eval_model(model, dlval)
+            acc1_ema, acc5_ema = evaluate(ema, dlval)
             if dist.get_rank() == 0:
                 print('epoch: {}, acc1: {:.4f}, acc5: {:.4f}'.format(ep+1, acc1, acc5))
                 print('epoch: {}, ema_acc1: {:.4f}, ema_acc5: {:.4f}'.format(ep+1, acc1_ema, acc5_ema))
