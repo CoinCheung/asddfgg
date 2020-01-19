@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import torch.distributed as dist
+from apex import amp
 
 from efficientnet_refactor import EfficientNet
 from imagenet.imagenet import ImageNet
@@ -69,9 +70,10 @@ def set_optimizer(model, lr, wd, momentum, n_iters_per_epoch,
         warmup, warmup_ratio):
     wd_params, non_wd_params = [], []
     for name, param in model.named_parameters():
-        if len(param.size()) == 4 or len(param.size()) == 2:
+        param_len = len(param.size())
+        if param_len == 4 or param_len == 2:
             wd_params.append(param)
-        elif len(param.size()) == 1:
+        elif param_len == 1:
             non_wd_params.append(param)
         else:
             print(name)
@@ -114,18 +116,13 @@ def main():
     cropsize = 224
     num_workers = 4
     ema_alpha = 0.9999
+    fp16_level = 'O1'
 
     model = EfficientNet(model_type, n_classes)
     init_model_weights(model)
     model.cuda()
-    local_rank = dist.get_rank()
-    model = nn.parallel.DistributedDataParallel(
-        model, device_ids=[local_rank, ], output_device=local_rank
-    )
     #  crit = nn.CrossEntropyLoss()
     crit = LabelSmoothSoftmaxCEV2()
-
-    ema = EMA(model, ema_alpha)
 
     dataset_train = ImageNet(datapth, mode='train', cropsize=cropsize)
     sampler_train = torch.utils.data.distributed.DistributedSampler(dataset_train, shuffle=True)
@@ -150,6 +147,15 @@ def main():
         model, lr, opt_wd, momentum, n_iters_per_epoch, warmup, warmup_ratio
     )
 
+    model, optim = amp.initialize(model, optim, opt_level=fp16_level)
+
+    local_rank = dist.get_rank()
+    model = nn.parallel.DistributedDataParallel(
+        model, device_ids=[local_rank, ], output_device=local_rank
+    )
+
+    ema = EMA(model, ema_alpha)
+
     time_meter = TimeMeter(n_iters)
     loss_meter = AvgMeter()
     logger = logging.getLogger()
@@ -163,7 +169,9 @@ def main():
             logits = model(im)
             loss = crit(logits, lb) #+ cal_l2_loss(model, weight_decay)
             optim.zero_grad()
-            loss.backward()
+            #  loss.backward()
+            with amp.scale_loss(loss, optim) as scaled_loss:
+                scaled_loss.backward()
             optim.step()
             scheduler.step()
             ema.update_params()
