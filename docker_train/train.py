@@ -38,6 +38,7 @@ random.seed(123)
 np.random.seed(123)
 torch.manual_seed(123)
 torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = True
 #  torch.multiprocessing.set_sharing_strategy('file_system') # this would make it stuck when program is done
 
 
@@ -66,8 +67,7 @@ def cal_l2_loss(model, weight_decay):
     return 0.5 * l2loss
 
 
-def set_optimizer(model, lr, wd, momentum, n_iters_per_epoch,
-        warmup, warmup_ratio):
+def set_optimizer(model, lr, wd, momentum):
     wd_params, non_wd_params = [], []
     for name, param in model.named_parameters():
         param_len = len(param.size())
@@ -92,16 +92,12 @@ def set_optimizer(model, lr, wd, momentum, n_iters_per_epoch,
     optim = torch.optim.SGD(
         params_list, lr=lr, weight_decay=wd, momentum=momentum
     )
-    scheduler = WarmupExpLrScheduler(
-        optim, power=0.97, step_interval=n_iters_per_epoch * 2.4,
-        warmup_iter=n_iters_per_epoch * 5, warmup=warmup, warmup_ratio=warmup_ratio
-    )
-    return optim, scheduler
+    return optim
 
 
 def main():
     n_gpus = torch.cuda.device_count()
-    batchsize = 128
+    batchsize = 256
     n_epoches = 350
     n_eval_epoch = 1
     lr = 1.6e-2 * (batchsize / 256) * n_gpus
@@ -117,15 +113,12 @@ def main():
     num_workers = 4
     ema_alpha = 0.9999
     fp16_level = 'O1'
+    use_sync_bn = False
 
-    model = EfficientNet(model_type, n_classes)
-    init_model_weights(model)
-    model.cuda()
-    #  crit = nn.CrossEntropyLoss()
-    crit = LabelSmoothSoftmaxCEV2()
-
+    ## dataloader
     dataset_train = ImageNet(datapth, mode='train', cropsize=cropsize)
-    sampler_train = torch.utils.data.distributed.DistributedSampler(dataset_train, shuffle=True)
+    sampler_train = torch.utils.data.distributed.DistributedSampler(
+        dataset_train, shuffle=True)
     batch_sampler_train = torch.utils.data.sampler.BatchSampler(
         sampler_train, batchsize, drop_last=True
     )
@@ -133,48 +126,72 @@ def main():
         dataset_train, batch_sampler=batch_sampler_train, num_workers=num_workers, pin_memory=True
     )
     dataset_eval = ImageNet(datapth, mode='val', cropsize=cropsize)
-    sampler_val = torch.utils.data.distributed.DistributedSampler(dataset_eval, shuffle=False)
+    sampler_val = torch.utils.data.distributed.DistributedSampler(
+        dataset_eval, shuffle=False)
     batch_sampler_val = torch.utils.data.sampler.BatchSampler(
         sampler_val, batchsize * 2, drop_last=False
     )
     dl_eval = DataLoader(
-        dataset_eval, batch_sampler=batch_sampler_val, num_workers=4, pin_memory=True
+        dataset_eval, batch_sampler=batch_sampler_val,
+        num_workers=4, pin_memory=True
     )
     n_iters_per_epoch = len(dataset_train) // n_gpus // batchsize
     n_iters = n_epoches * n_iters_per_epoch
 
-    optim, scheduler = set_optimizer(
-        model, lr, opt_wd, momentum, n_iters_per_epoch, warmup, warmup_ratio
-    )
+    ## model
+    model = EfficientNet(model_type, n_classes)
+    init_model_weights(model)
+    model.cuda()
+    #  crit = nn.CrossEntropyLoss()
+    crit = LabelSmoothSoftmaxCEV2()
 
+    ## optimizer
+    optim = set_optimizer(model, lr, opt_wd, momentum)
+
+    ## apex
     model, optim = amp.initialize(model, optim, opt_level=fp16_level)
 
+    ## ema
+    ema = EMA(model, ema_alpha)
+
+    ## sync bn
+    if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+
+    ## ddp training
     local_rank = dist.get_rank()
     model = nn.parallel.DistributedDataParallel(
         model, device_ids=[local_rank, ], output_device=local_rank
     )
 
-    ema = EMA(model, ema_alpha)
-
+    ## log meters
     time_meter = TimeMeter(n_iters)
     loss_meter = AvgMeter()
     logger = logging.getLogger()
 
+    ## scheduler
+    scheduler = WarmupExpLrScheduler(
+        optim, power=0.97, step_interval=n_iters_per_epoch * 2.4,
+        warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
+        warmup_ratio=warmup_ratio
+    )
+
+    ## train loop
     for e in range(n_epoches):
         sampler_train.set_epoch(e)
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
             im = im.cuda()
             lb = lb.cuda()
+            optim.zero_grad()
             logits = model(im)
             loss = crit(logits, lb) #+ cal_l2_loss(model, weight_decay)
-            optim.zero_grad()
             #  loss.backward()
             with amp.scale_loss(loss, optim) as scaled_loss:
                 scaled_loss.backward()
             optim.step()
-            scheduler.step()
+            torch.cuda.synchronize()
             ema.update_params()
+            scheduler.step()
             time_meter.update()
             loss_meter.update(loss.item())
             if (idx + 1) % 200 == 0:
@@ -185,6 +202,7 @@ def main():
                 logger.info(msg)
         torch.cuda.empty_cache()
         if (e + 1) % n_eval_epoch == 0:
+            if e > 50: n_eval_epoch = 5
             logger.info('evaluating...')
             acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
             msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(

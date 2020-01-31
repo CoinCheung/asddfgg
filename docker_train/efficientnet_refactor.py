@@ -9,10 +9,6 @@ import torch.nn.functional as F
 
 
 from torch.nn import BatchNorm2d
-#  def BatchNorm2d(out_chan, momentum=0.1, eps=1e-3):
-#      return nn.SyncBatchNorm.convert_sync_batchnorm(
-#          nn.BatchNorm2d(out_chan, momentum=momentum, eps=eps)
-#      )
 
 
 def round_channels(n_chan, multiplier):
@@ -129,6 +125,7 @@ class MBConv(nn.Module):
             feat = feat * atten
         feat = self.proj_conv(feat)
         feat = self.proj_bn(feat)
+        feat = act_func(feat)
         if self.skip:
             feat = self.drop_connect(feat)
             feat = feat + x
