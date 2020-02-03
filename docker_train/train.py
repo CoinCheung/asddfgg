@@ -20,6 +20,7 @@ from meters import TimeMeter, AvgMeter
 from logger import setup_logger
 from ema import EMA
 from label_smooth import LabelSmoothSoftmaxCEV2
+from rmsprop_tf import RMSpropTF
 from lr_scheduler import WarmupExpLrScheduler
 
 
@@ -81,24 +82,25 @@ def set_optimizer(model, lr, wd, momentum):
         {'params': wd_params},
         {'params': non_wd_params, 'weight_decay': 0},
     ]
+    optim = RMSpropTF(
     #  optim = torch.optim.RMSprop(
-    #      model.parameters(),
-    #      lr=lr,
-    #      alpha=0.9,
-    #      eps=1e-3,
-    #      weight_decay=opt_wd,
-    #      momentum=momentum
-    #  )
-    optim = torch.optim.SGD(
-        params_list, lr=lr, weight_decay=wd, momentum=momentum
+        params_list,
+        lr=lr,
+        alpha=0.9,
+        eps=1e-3,
+        weight_decay=wd,
+        momentum=momentum
     )
+    #  optim = torch.optim.SGD(
+    #      params_list, lr=lr, weight_decay=wd, momentum=momentum
+    #  )
     return optim
 
 
 def main():
     n_gpus = torch.cuda.device_count()
     batchsize = 256
-    n_epoches = 350
+    n_epoches = 450
     n_eval_epoch = 1
     lr = 1.6e-2 * (batchsize / 256) * n_gpus
     weight_decay = 1e-5

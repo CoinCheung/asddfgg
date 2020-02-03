@@ -66,8 +66,10 @@ fp16 + lb-smooothv2 + 1024 + wd=2e-5: 71.03/90.13
         mbconv的proj-conv后面加上act: 68.46/88.4
         顺序改成model-optim-apex-ema-syncbn-ddp-schdlr:68.43/88.46
         加上cuda.sychronize()看两个epoch之后一样不一样, 是否还有warning:
-        rmsprobtf: 
+614 + fp16:
+        rmsprobtf: 73.68/91.53
         改成450个epoch: 
+        加上color-jitter(0.4)和random-erasing(0.2):
         warmup也算在real-iter里面: 
         warmup从1e-6开始: 
     proj_bn的gamma改成0: 
