@@ -11,6 +11,7 @@ import torchvision
 import torchvision.transforms as T
 #  import transforms as T
 from autoaugment import ImageNetPolicy
+from random_erasing import RandomErasing
 
 
 class ResizeCenterCrop(object):
@@ -60,7 +61,9 @@ class ImageNet(Dataset):
             T.RandomResizedCrop(cropsize),
             T.RandomHorizontalFlip(),
             ImageNetPolicy(),
+            T.ColorJitter(0.4, 0.4, 0.4),
         ])
+        self.random_erasing = RandomErasing(0.2, mode='pixel', max_count=1)
         self.trans_val = T.Compose([
             ResizeCenterCrop((cropsize, cropsize)),
         ])
@@ -75,9 +78,11 @@ class ImageNet(Dataset):
         im = Image.open(impth).convert('RGB')
         if self.mode == 'train':
             im = self.trans_train(im)
+            im = self.to_tensor(im)
+            im = self.random_erasing(im)
         else:
             im = self.trans_val(im)
-        im = self.to_tensor(im)
+            im = self.to_tensor(im)
         return im, label
 
     def __len__(self):

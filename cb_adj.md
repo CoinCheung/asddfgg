@@ -68,10 +68,11 @@ fp16 + lb-smooothv2 + 1024 + wd=2e-5: 71.03/90.13
         加上cuda.sychronize()看两个epoch之后一样不一样, 是否还有warning:
 614 + fp16:
         rmsprobtf: 73.68/91.53
-        改成450个epoch: 
-        加上color-jitter(0.4)和random-erasing(0.2):
+        改成450个epoch: 73.86/91.57
+        加上color-jitter(0.4)和random-erasing(0.2): 73.37/91.45 --  应该是没收敛完
         warmup也算在real-iter里面: 
         warmup从1e-6开始: 
+        warmup使用linear:
     proj_bn的gamma改成0: 
 
 611: 

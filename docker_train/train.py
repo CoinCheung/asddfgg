@@ -83,7 +83,6 @@ def set_optimizer(model, lr, wd, momentum):
         {'params': non_wd_params, 'weight_decay': 0},
     ]
     optim = RMSpropTF(
-    #  optim = torch.optim.RMSprop(
         params_list,
         lr=lr,
         alpha=0.9,
@@ -182,8 +181,7 @@ def main():
         sampler_train.set_epoch(e)
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
-            im = im.cuda()
-            lb = lb.cuda()
+            im, lb= im.cuda(), lb.cuda()
             optim.zero_grad()
             logits = model(im)
             loss = crit(logits, lb) #+ cal_l2_loss(model, weight_decay)
