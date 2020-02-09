@@ -70,6 +70,7 @@ fp16 + lb-smooothv2 + 1024 + wd=2e-5: 71.03/90.13
         rmsprobtf: 73.68/91.53
         改成450个epoch: 73.86/91.57
         加上color-jitter(0.4)和random-erasing(0.2): 73.37/91.45 --  应该是没收敛完
+        学习率以128为base来算: 73.85/91.59
         warmup也算在real-iter里面: 
         warmup从1e-6开始: 
         warmup使用linear:
