@@ -1,37 +1,18 @@
 import os
 import os.path as osp
 import json
-
-from torch.utils.data import Dataset, DataLoader
-
 import numpy as np
-from PIL import Image
+import cv2
+
 import torch
+from torch.utils.data import Dataset, DataLoader
 import torchvision
-import torchvision.transforms as T
-#  import transforms as T
+import transforms as T
+
 from autoaugment import ImageNetPolicy
-from rand_augment import rand_augment_transform
+from rand_augment_cv2 import RandomAugment
 from random_erasing import RandomErasing
 
-
-class ResizeCenterCrop(object):
-
-    def __init__(self, crop_size):
-        self.crop_size = crop_size
-
-    def __call__(self, im):
-        W, H = im.size
-        if W < H:
-            w = 224 + 32
-            h = int(w * H / W)
-        else:
-            h = 224 + 32
-            w = int(h * W / H)
-        size = (w, h)
-        im = im.resize(size)
-        im = T.CenterCrop(self.crop_size)(im)
-        return im
 
 
 class ImageNet(Dataset):
@@ -62,23 +43,27 @@ class ImageNet(Dataset):
         self.trans_train = T.Compose([
             T.RandomResizedCrop(cropsize),
             T.RandomHorizontalFlip(),
-            #  ImageNetPolicy(),
+            RandomAugment(2, 9),
             #  rand_augment_transform('rand-m9-mstd0.5', {'translate_const': 100, 'img_mean': randaug_mean,}),
             T.ColorJitter(0.4, 0.4, 0.4),
         ])
         self.random_erasing = RandomErasing(0.2, mode='pixel', max_count=1)
         self.trans_val = T.Compose([
-            ResizeCenterCrop((cropsize, cropsize)),
+            T.ResizeCenterCrop((cropsize, cropsize)),
         ])
         self.to_tensor = T.Compose([
             T.ToTensor(),
             T.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
         ])
 
+    def readimg(self, impth):
+        im = cv2.imread(impth, cv2.IMREAD_COLOR)
+        im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+        return im
 
     def __getitem__(self, idx):
         impth, label = self.samples[idx]
-        im = Image.open(impth).convert('RGB')
+        im = self.readimg(impth)
         if self.mode == 'train':
             im = self.trans_train(im)
             im = self.to_tensor(im)
@@ -95,9 +80,9 @@ class ImageNet(Dataset):
 if __name__ == "__main__":
     # 10
     ds = ImageNet(root='./imagenet', mode='train')
-    im, lb = ds[40948]
-    print(im.size())
-    print(lb)
+    #  im, lb = ds[40948]
+    #  print(im.size())
+    #  print(lb)
     dltrain = torch.utils.data.DataLoader(
         ds,
         shuffle=True,

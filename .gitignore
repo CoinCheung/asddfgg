@@ -109,4 +109,6 @@ data/
 res/
 output
 screenlog*
+cifar/dataset/
+cifar/res/
 

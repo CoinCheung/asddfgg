@@ -76,6 +76,42 @@ fp16 + lb-smooothv2 + 1024 + wd=2e-5: 71.03/90.13
         warmup使用linear:
     proj_bn的gamma改成0: 
 
+
+611: 官方efficientnet + swish: 75.05/92.27
+611: 官方efficientnet + relu: 74.42/91.91
+611: 官方efficientnet + relu + 官方 scheduler: 
+614: 官方efficientnet + relu: 74.35/91.81
+614: 官方efficientnet + swish + 官方rand_aug: 75.16/92.43
+614: 官方efficientnet + swish + 官方rand_aug + 官方scheduler: 75.3/92.29
+614: 官方efficientnet + swish + 官方rand_aug + official_init: 75.21/92.5
+614: 官方efficientnet + swish + cv2的transform/randomaug + official_init: 74.64/92.15
+
+614: 官方efficientnet + swish + cv2的transform不加randaug + official_init: 74.78/91.99
+614: 官方efficientnet + swish + 官方的transform不加randaug + official_init: 74.28/91.91
+614: 官方efficientnet + swish + cv2的transform加自制randaug10 + official_init: 74.74/91.96
+614: 官方efficientnet + swish + cv2的transform加官方randaug方法M10 + official_init: 75.21/92.26
+614: 官方efficientnet + swish + cv2的transform加官方randaug方法m9nocutout + official_init: 75.02/92.2
+614: 官方efficientnet + swish + cv2的transform加官方randaug方法m9nocutout-mstd0.5 + official_init: 75.02/92.2
+
+
+再试试官方的ema
+慢慢调自己的模型, 看能不能跟官方实现效果一样: 
+
+2. 加上randaug_cv2 + prob 并且不带cutout的:
+randaug加上cutout然后去掉random-erasing: 
+
+mixup: 同batch mix和异batch mix: 直接上lambda还是1-lambda, 使用自定义的ce还是nn.ce 还是sigmoid
+cutmix:
+mixup + cutmix: 
+
+
+检查eval的center-crop是否正确: 
+
+官方好像是warmup_epoch=3, 我这里一直是5: 
+
+都可以了的话，再试一下先crop再resize到224:
+
+
 611: 
 如果rmsprop失败了的话, 改回sgd-momentum: 
     + lr-scheduler不考虑warmup:

@@ -6,6 +6,7 @@ import logging
 import cv2
 import numpy as np
 import random
+import math
 
 import torch
 import torch.nn as nn
@@ -14,7 +15,8 @@ import torch.distributed as dist
 from apex import amp
 
 from efficientnet_refactor import EfficientNet
-from imagenet.imagenet import ImageNet
+from imagenet.imagenet_cv2 import ImageNet
+#  from imagenet.imagenet import ImageNet
 from eval import evaluate
 from meters import TimeMeter, AvgMeter
 from logger import setup_logger
@@ -46,13 +48,19 @@ torch.backends.cudnn.benchmark = True
 def init_model_weights(model):
     for name, module in model.named_modules():
         if isinstance(module, nn.Conv2d):
-            nn.init.kaiming_normal_(module.weight, mode='fan_out')
+            fan_out = module.kernel_size[0] * module.kernel_size[1] * module.out_channels
+            module.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
+            #  nn.init.kaiming_normal_(module.weight, mode='fan_out')
             if not module.bias is None: nn.init.constant_(module.bias, 0)
         elif isinstance(module, nn.modules.batchnorm._BatchNorm):
             nn.init.ones_(module.weight)
             nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Linear):
-            nn.init.xavier_uniform_(module.weight)
+            fan_out = module.weight.size(0)  # fan-out
+            fan_in = 0
+            init_range = 1.0 / math.sqrt(fan_in + fan_out)
+            module.weight.data.uniform_(-init_range, init_range)
+            #  nn.init.xavier_uniform_(module.weight)
             nn.init.constant_(module.bias, 0)
 
 
@@ -140,7 +148,12 @@ def main():
     n_iters = n_epoches * n_iters_per_epoch
 
     ## model
-    model = EfficientNet(model_type, n_classes)
+    #  model = EfficientNet(model_type, n_classes)
+    from models import create_model
+    model = create_model('efficientnet_b0',
+            drop_connect_rate=0.2,
+            global_pool='avg',
+            drop_rate=0.2)
     init_model_weights(model)
     model.cuda()
     #  crit = nn.CrossEntropyLoss()

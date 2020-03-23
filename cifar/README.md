@@ -48,7 +48,7 @@ The resnet models for cifar and imagenet have different structures. Cifar models
 
 
 ### Tricks that does not work 
-1. label smooth: adding label smooth would make the performance a little worse. Maybe the model is not overfitting, and it is just experiencing some underfitting with this trick.
+1. label smooth: adding label smooth would make the performance a little worse. Maybe it is caused by underfitting, since the performance becomes better if we double the number of iters.
 
 2. about dropout:
 * some paper say that dropout conflicts with bn, it is true. we should not add dropout before bn, but we could add it where there is no bn in the following layers.
@@ -58,3 +58,7 @@ The resnet models for cifar and imagenet have different structures. Cifar models
 3. SGDR: It is weird that this trick can never help, even with this simple task of cifar10 classification. I do not know how the paper get this result.
 
 4. channel drop: though channel drop seems to be working well in some self-supervised models, it does not work well here.
+
+5. using EMA helps, but the decay ema_alpha matters a lot, if training iters are small, it is better to use a smaller decay ema_alpha, if training iters are large, it will be better to use a larger one.
+
+6. sigmoid or softmax: they performs similar (or sigmoid is a bit better in this code) in naive ce loss, label-smooth loss, or mixup scenarios.

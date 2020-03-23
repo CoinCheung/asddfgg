@@ -7,11 +7,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class SoftmaxCrossEntropyWithOneHot(nn.Module):
+class SoftmaxCrossEntropyV1(nn.Module):
     def __init__(self, reduction='mean',):
-        super(SoftmaxCrossEntropyWithOneHot, self).__init__()
+        super(SoftmaxCrossEntropyV1, self).__init__()
         self.reduction = reduction
-        self.log_softmax = nn.LogSoftmax(1)
+        self.log_softmax = nn.LogSoftmax(dim=1)
 
     def forward(self, logits, label):
         logs = self.log_softmax(logits)
@@ -24,31 +24,137 @@ class SoftmaxCrossEntropyWithOneHot(nn.Module):
         return loss
 
 
-class OneHot(nn.Module):
-    def __init__(
-            self,
-            n_labels,
-            lb_ignore=255,
-        ):
-        super(OneHot, self).__init__()
-        self.n_labels = n_labels
-        self.lb_ignore = lb_ignore
+class CrossEntropyFunction(torch.autograd.Function):
 
-    def forward(self, label):
-        N, *S = label.size()
-        size = [N, self.n_labels] + S
-        lb_one_hot = torch.zeros(size)
-        if label.is_cuda:
-            lb_one_hot = lb_one_hot.cuda()
-        ignore = label.data.cpu() == self.lb_ignore
-        label[ignore] = 0
-        lb_one_hot.scatter_(1, label.unsqueeze(1), 1)
-        ignore = ignore.nonzero()
-        _, M = ignore.size()
-        a, *b = ignore.chunk(M, dim=1)
-        lb_one_hot[[a, torch.arange(self.n_labels), *b]] = 0
+    @staticmethod
+    def forward(ctx, logits, label, reduction):
+        loss = torch.log_softmax(logits, dim=1).neg_().mul_(label).sum(dim=1)
 
-        return lb_one_hot
+        ctx.logits = logits
+        ctx.label = label
+        ctx.reduction = reduction
+        ctx.n_valid = loss.numel()
+
+        if reduction == 'mean':
+            loss = loss.mean()
+        if reduction == 'sum':
+            loss = loss.sum()
+        return loss
+
+    @staticmethod
+    def backward(ctx, grad_output):
+
+        logits = ctx.logits
+        label = ctx.label
+        reduction = ctx.reduction
+        n_valid = ctx.n_valid
+
+        coeff = label.sum(dim=1, keepdim=True)
+
+        scores = torch.softmax(logits, dim=1).mul_(coeff)
+        if reduction == 'none':
+            grad = scores.sub_(label).mul_(grad_output.unsqueeze(1))
+        elif reduction == 'sum':
+            grad = scores.sub_(label).mul_(grad_output)
+        elif reduction == 'mean':
+            grad = scores.sub_(label).mul_(grad_output.div_(n_valid))
+        return grad, None, None
+
+
+class SoftmaxCrossEntropyV2(nn.Module):
+
+    def __init__(self, reduction='mean'):
+        super(SoftmaxCrossEntropyV2, self).__init__()
+        self.reduction = reduction
+
+    def forward(self, logits, label):
+        return CrossEntropyFunction.apply(
+                logits, label, self.reduction)
+
+#
+#  class OnehotEncoder(nn.Module):
+#      def __init__(
+#              self,
+#              n_classes,
+#              lb_smooth=0,
+#              ignore_idx=-1,
+#          ):
+#          super(OneHot, self).__init__()
+#          self.n_classes = n_classes
+#          self.lb_pos = 1. - lb_smooth
+#          self.lb_neg = lb_smooth / n_classes
+#          self.ignore_idx = ignore_idx
+#
+#      @ torch.no_grad()
+#      def forward(self, label):
+#          device = label.device
+#          # compute output shape
+#          size = list(label.size())
+#          size.insert(1, self.n_classes)
+#          if self.ignore_idx < 0:
+#              out = torch.empty(size, device=device).fill_(
+#                  self.lb_neg).scatter_(1, x.unsqueeze(1), self.lb_pos)
+#          else:
+#              # overcome ignore index
+#              with torch.no_grad():
+#                  label = label.clone().detach()
+#                  ignore = label == self.ignore_idx
+#                  label[ignore] = 0
+#                  out = torch.empty(size, device=device).fill_(
+#                      self.lb_neg).scatter_(1, x.unsqueeze(1), self.lb_pos)
+#                  #  out = torch.empty(size, device=device).scatter_(
+#                  #      self.lb_neg, x.unsqueeze(1), 1)
+#                  ignore = ignore.nonzero()
+#                  _, M = ignore.size()
+#                  a, *b = ignore.chunk(M, dim=1)
+#                  out[[a, torch.arange(self.n_classes), *b]] = 0
+#          return out
+#
+#          #  N, *S = label.size()
+#          #  size = [N, self.n_labels] + S
+#          #  lb_one_hot = torch.zeros(size)
+#          #  if label.is_cuda:
+#          #      lb_one_hot = lb_one_hot.cuda()
+#          #  ignore = label.data.cpu() == self.lb_ignore
+#          #  label[ignore] = 0
+#          #  lb_one_hot.scatter_(1, label.unsqueeze(1), 1)
+#          #  ignore = ignore.nonzero()
+#          #  _, M = ignore.size()
+#          #  a, *b = ignore.chunk(M, dim=1)
+#          #  lb_one_hot[[a, torch.arange(self.n_labels), *b]] = 0
+#          #
+#          #  return lb_one_hot
+#
+#
+#  class OneHot(nn.Module):
+#      def __init__(
+#              self,
+#              n_classes,
+#              lb_smooth=0,
+#              lb_ignore=255,
+#          ):
+#          super(OneHot, self).__init__()
+#          self.n_labels = n_classes
+#          self.lb_pos = 1 - lb_smooth
+#          self.lb_neg = lb_smooth / n_classes
+#          self.lb_ignore = lb_ignore
+#
+#      @ torch.no_grad()
+#      def forward(self, label):
+#          N, *S = label.size()
+#          size = [N, self.n_labels] + S
+#          lb_one_hot = torch.zeros(size)
+#          if label.is_cuda:
+#              lb_one_hot = lb_one_hot.cuda()
+#          ignore = label.data.cpu() == self.lb_ignore
+#          label[ignore] = 0
+#          lb_one_hot.scatter_(1, label.unsqueeze(1), 1)
+#          ignore = ignore.nonzero()
+#          _, M = ignore.size()
+#          a, *b = ignore.chunk(M, dim=1)
+#          lb_one_hot[[a, torch.arange(self.n_labels), *b]] = 0
+#
+#          return lb_one_hot
 
 
 class LabelSmooth(nn.Module):

@@ -357,3 +357,111 @@ label-refine:
 使用opencv的aug: 
 
 使用lookahead: 
+
+
+=========
+1. org: 92.85
+2. naive + self-ce: 92.62
+3. naive + sigmoid: 92.71
+4. naive + nn.ce: 92.62
+5. naive + nn.ce + 2xbs: 92.64
+6. naive + nn.ce + 2xbs + cosine lr: 92.58
+7. + ema: 
+    buffer copy:
+        0.99: 92.66/92.67
+        0.999: 92.66/90.55
+        0.9999: 92.66/67.50
+    buffer ema:
+        0.99:  92.66/92.70
+        0.999: 92.66/93.04
+        0.9999: 92.66/90.94
+    结论: 1) buffer也ema更好, 0.999更好, 这个应该看一个epoch有多少iter定的, 多的话大点, 少就少点. 
+
+8. lbsmooth: self-ce/sigmoid
+    self-ce: 
+        ema=0.99, buffer copy:
+            0.1: 92.90/92.93
+            0.01: 92.72/92.73
+            0.001: 92.82/92.81
+        ema=0.999, buffer ema:
+            0.1: 92.90/93.16
+            0.01: 92.72/92.91
+            0.001: 92.82/92.95
+    sigmoid: 
+        ema=0.999, buffer ema:
+            0.1: 92.53/92.69
+            0.01: 92.79/92.96
+            0.001: 92.58/92.81
+    结论: ce的话是0.1最好, sigmoid是0.01效果最好, 看起来都差不多, 应该是跳出来的
+        sigmoid没有ce效果好
+
+看方差如何: 
+    92.65/92.87
+    92.87/93.00
+    92.68/92.82
+    92.68/92.79
+    92.76/92.83
+    看样子比较小的
+
+
+9. 初始化改成fan_out: 92.70/92.85
+
+10. wresnet28-2: 
+    cosine: 92.59/60.06
+    step: 94.08/93.35
+    +dropout=0.2: 93.99/93.51
+    +dropout=0.3: 93.88/93.44
+    +dropout=0.3, cosine, 1.5xiter:  94.82/92.62
+    +dropout=0.3, cosine, 2xiter:  95.09/94.30
+    +dropout=0.3, cosine, 3xiter:  95.45/95.23
+    +dropout=0.3, cosine, 3xiter, ema=0.9999: 95.45/29.25 
+    +dropout=0.3, cosine, 3xiter, ema=0.99: 95.45/95.44
+    结论: 
+        感觉这个wresnet不是特别稳定, 训练的时候不够平滑, 跳得比较厉害, 而且是最后的时候才慢慢收敛的.  
+        另外, 加了正则之后, 应该把iter数也增加, 不然看不出效果
+
+11. refactor: 
+    mix-lambda:
+        softmax-ce + lbsmooth0.0, ema0.99, mixup-none: 95.27/95.25 
+        softmax-ce + lbsmooth0.1, ema0.99, mixup-none:  95.14/95.10
+        softmax-ce + lbsmooth0.0, ema0.99, mixup-0.3: 95.50/95.46
+        softmax-ce + lbsmooth0.1, ema0.99, mixup-0.3: 95.76/95.76
+        softmax-ce + lbsmooth0.1, ema0.99, mixup-0.3, sigmoid: 95.50/95.51
+    mix-(1-lambda):
+        softmax-ce + lbsmooth0.0, ema0.99, mixup-0.3: 95.80/95.82
+        softmax-ce + lbsmooth0.1, ema0.99, mixup-0.3: 95.77/95.77
+        softmax-ce + lbsmooth0.1, ema0.99, mixup-0.3, sigmoid: 95.54/95.56
+
+    奇怪的现象: 
+        1) 加上lbsmooth反而低了些, 但是加上mixup + lbsmooth反而比直接mixup要高
+    结论: 
+        1) lbsmooth多数情况下有坏处? 2) mixup使用1-lam这种方式更好一些
+
+12. 把loss改成自带梯度的ce再来一遍
+    1-lam: 
+        lbsmooth0.1, mixup-0.3: 95.48/95.49
+        lbsmooth0.0, mixup-0.3: 95.61/95.61
+        lbsmooth0.1, mixup-none: 95.28/95.25
+        lbsmooth0.0, mixup-none: 
+
+
+11. mixup - lambda/(1-lambda), ce/soft-ce/sigmoid
+    1- lambda:
+        普通ce: 95.45/95.44
+        mixup-ce: 95.50/95.46
+        mixup-sigmoid:  95.45/95.44
+        lbsmooth-mixup: 94.98/95.01
+        mixup-lbsmooth-sigmoid: 95.54/95.56
+    lambda: 
+        mixup-ce:  95.54/95.55
+        lbsmooth-mixup: 95.83/95.80
+        mixup-lbsmooth-sigmoid: 95.50/95.51
+    这里面sigmoid又不如ce了, 真是无语,看样子结果都是跳出来的, 其实效果都差不多, 最好的办法就是多加这种正则, 然后增加训练次数.  
+
+    mix-ratio=0.5, + lbsmooth: 95.60/95.59
+
+12. cutmix: 
+
+13. rand aug
+
+14. wsconv

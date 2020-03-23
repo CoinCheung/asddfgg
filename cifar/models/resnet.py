@@ -63,7 +63,7 @@ class BasicBlock(nn.Module):
         for _, md in self.named_modules():
             if isinstance(md, (nn.Linear, nn.Conv2d)):
                 nn.init.kaiming_normal_(
-                    md.weight, a=0, mode='fan_in', nonlinearity='leaky_relu'
+                    md.weight, a=0, mode='fan_out', nonlinearity='leaky_relu'
                 )
                 if not md.bias is None: nn.init.constant_(md.bias, 0)
         nn.init.constant_(self.bn2.weight, 0)  # gamma of last bn in residual path is initialized to be 0
@@ -137,7 +137,7 @@ class BottleneckBlock(nn.Module):
         for _, md in self.named_modules():
             if isinstance(md, (nn.Linear, nn.Conv2d)):
                 nn.init.kaiming_normal_(
-                    md.weight, a=0, mode='fan_in', nonlinearity='leaky_relu'
+                    md.weight, a=0, mode='fan_out', nonlinearity='leaky_relu'
                 )
                 if not md.bias is None: nn.init.constant_(md.bias, 0)
         nn.init.constant_(self.bn3.weight, 0)  # gamma of last bn in residual path is initialized to be 0
@@ -193,7 +193,7 @@ class BasicBlockPreAct(nn.Module):
         for _, md in self.named_modules():
             if isinstance(md, (nn.Linear, nn.Conv2d)):
                 nn.init.kaiming_normal_(
-                    md.weight, a=0, mode='fan_in', nonlinearity='leaky_relu'
+                    md.weight, a=0, mode='fan_out', nonlinearity='leaky_relu'
                 )
                 if not md.bias is None: nn.init.constant_(md.bias, 0)
 
@@ -259,7 +259,7 @@ class BottleneckBlockPreAct(nn.Module):
         for _, md in self.named_modules():
             if isinstance(md, (nn.Linear, nn.Conv2d)):
                 nn.init.kaiming_normal_(
-                    md.weight, a=0, mode='fan_in', nonlinearity='leaky_relu'
+                    md.weight, a=0, mode='fan_out', nonlinearity='leaky_relu'
                 )
                 if not md.bias is None: nn.init.constant_(md.bias, 0)
 
@@ -303,7 +303,7 @@ class ResnetBackbone(nn.Module):
         for _, child in self.named_children():
             if isinstance(child, (nn.Linear, nn.Conv2d)):
                 nn.init.kaiming_normal_(
-                    child.weight, a=0, mode='fan_in', nonlinearity='leaky_relu'
+                    child.weight, a=0, mode='fan_out', nonlinearity='leaky_relu'
                 )
                 if not child.bias is None: nn.init.constant_(child.bias, 0)
 
@@ -346,7 +346,7 @@ class ResnetPreActBackbone(nn.Module):
         for _, child in self.named_children():
             if isinstance(child, (nn.Linear, nn.Conv2d)):
                 nn.init.kaiming_normal_(
-                    child.weight, a=0, mode='fan_in', nonlinearity='leaky_relu'
+                    child.weight, a=0, mode='fan_out', nonlinearity='leaky_relu'
                 )
                 if not child.bias is None: nn.init.constant_(child.bias, 0)
 
@@ -374,7 +374,7 @@ class Resnet18(nn.Module):
 
     def init_weight(self):
         nn.init.kaiming_normal_(
-            self.classifier.weight, a=0, mode='fan_in', nonlinearity='leaky_relu'
+            self.classifier.weight, a=0, mode='fan_out', nonlinearity='leaky_relu'
         )
         if not self.classifier.bias is None:
             nn.init.constant_(self.classifier.bias, 0)

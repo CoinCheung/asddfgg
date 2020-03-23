@@ -10,12 +10,12 @@ import numpy as np
 
 from models import Resnet18, WideResnet
 from cifar import get_train_loader, get_val_loader
-from ops import EMA, MixUper, OnehotEncoder
+from ema import EMA
 from lr_scheduler import WarmupCosineAnnealingLR, WarmupMultiStepLR, WarmupCyclicLR
-#  from label_smooth import LabelSmoothSoftmaxCEV2, LabelSmoothSoftmaxCEV1
+from label_smooth import LabelSmoothSoftmaxCEV2, LabelSmoothSoftmaxCEV1
 from loss import (
-        SoftmaxCrossEntropyV2,
-        SoftmaxCrossEntropyV1
+        KVDivLoss,
+        SoftmaxCrossEntropyWithOneHot, OneHot, LabelSmooth
     )
 
 
@@ -55,21 +55,28 @@ cycle_mult = 1.
 lr_decay = 1.
 ema_alpha = 0.99
 # label smooth
-lb_smooth = 0.1
+use_lb_smooth = False
+lb_pos = 0.9
+lb_neg = 0.00005
 # mixup
-mixup = 'mixup'
+use_mixup = False
 mixup_use_kldiv = False
-mixup_alpha = 0.5
+mixup_alpha = 0.3
+# label refinery
+lb_refine = False
+refine_use_mixup = False
+refine_mixup_alpha = 0.3
+refine_cycles = 3
 
 
 def set_model():
     model = WideResnet(n_classes, k=2, n=28) # wide resnet-28-2
     #  model = Resnet18(n_classes=n_classes, pre_act=pre_act)
     model.cuda()
-    criteria = SoftmaxCrossEntropyV2()
+    #  criteria = SoftmaxCrossEntropyWithOneHot()
     #  criteria = nn.BCEWithLogitsLoss()
     #  criteria = nn.CrossEntropyLoss()
-    #  criteria = LabelSmoothSoftmaxCEV2(0.1)
+    criteria = LabelSmoothSoftmaxCEV2(0.1)
     return model, criteria
 
 
@@ -116,18 +123,37 @@ def train_one_epoch(
         dltrain,
         optim,
         ema,
-        mixuper,
+        use_mixup=False,
+        mixup_alpha=1,
     ):
+    one_hot = OneHot(n_labels=n_classes)
     loss_epoch = []
     model.train()
     for _, (ims, lbs) in enumerate(dltrain):
         ims = ims.cuda()
         lbs = lbs.cuda()
+        #  lbs = one_hot(lbs.cuda())
 
-        ims, lbs = mixuper(ims, lbs)
         logits = model(ims)
         loss = criteria(logits, lbs)
 
+        #  if use_mixup:
+        #      bs = ims.size(0)
+        #      idx = torch.randperm(bs)
+        #      lam = np.random.beta(mixup_alpha, mixup_alpha)
+        #      ims_mix = lam * ims + (1.-lam) * ims[idx]
+        #      lbs_mix = lam * lbs + (1.-lam) * lbs[idx]
+        #      logits = model(ims_mix)
+        #      loss = criteria(logits, lbs_mix)
+        #      #  loss1 = criteria(logits, lbs)
+        #      #  loss2 = criteria(logits, lbs[idx])
+        #      #  loss = lam * loss1 + (1.-lam) * loss2
+        #  else:
+        #      logits = model(ims)
+        #      if use_lb_smooth:
+        #          lbs[lbs == 1] = lb_pos
+        #          lbs[lbs == 0] = lb_neg
+        #      loss = criteria(logits, lbs)
         optim.zero_grad()
         loss.backward()
         optim.step()
@@ -146,7 +172,7 @@ def save_model(model, save_pth):
     torch.save(state_dict, save_pth)
 
 
-def train(save_pth, mixup, mixup_alpha):
+def train(save_pth, use_mixup, mixup_alpha):
     model, criteria = set_model()
     ema = EMA(model, ema_alpha)
 
@@ -159,14 +185,11 @@ def train(save_pth, mixup, mixup_alpha):
         pin_memory=False
     )
 
-    label_encoder = OnehotEncoder(n_classes=n_classes, lb_smooth=lb_smooth)
-    mixuper = MixUper(mixup_alpha, label_encoder, mixup=mixup)
-
     for e in range(n_epochs):
         tic = time.time()
 
         loss_avg = train_one_epoch(
-            model, criteria, dltrain, optim, ema, mixuper
+            model, criteria, dltrain, optim, ema, use_mixup, mixup_alpha
         )
         lr_sheduler.step()
         acc = evaluate(model, verbose=False)
@@ -175,12 +198,10 @@ def train(save_pth, mixup, mixup_alpha):
         ema.restore()
 
         toc = time.time()
-        lr_log = [el['lr'] for el in list(optim.param_groups)]
-        lr_log = sum(lr_log) / len(lr_log)
         msg = 'epoch: {}, loss: {:.4f}, lr: {:.4f}, acc: {:.4f}, acc_ema: {:.4f}, time: {:.2f}'.format(
             e,
             loss_avg,
-            lr_log,
+            list(optim.param_groups)[0]['lr'],
             acc,
             acc_ema,
             toc - tic
@@ -238,7 +259,7 @@ def main():
     save_name = 'model_final_naive.pth'
     if not osp.exists(savepth): os.makedirs(savepth)
     save_pth = osp.join(savepth, save_name)
-    model = train(save_pth, mixup, mixup_alpha)
+    model = train(save_pth, use_mixup, mixup_alpha)
     evaluate(model, verbose=True)
 
 
