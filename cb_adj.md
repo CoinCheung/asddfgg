@@ -91,7 +91,7 @@ fp16 + lb-smooothv2 + 1024 + wd=2e-5: 71.03/90.13
 614: 官方efficientnet + swish + cv2的transform加自制randaug10 + official_init: 74.74/91.96
 614: 官方efficientnet + swish + cv2的transform加官方randaug方法M10 + official_init: 75.21/92.26
 614: 官方efficientnet + swish + cv2的transform加官方randaug方法m9nocutout + official_init: 75.02/92.2
-614: 官方efficientnet + swish + cv2的transform加官方randaug方法m9nocutout-mstd0.5 + official_init: 75.02/92.2
+614: 官方efficientnet + swish + cv2的transform加官方randaug方法m9nocutout-mstd0.5 + official_init: 75.17
 
 
 再试试官方的ema
