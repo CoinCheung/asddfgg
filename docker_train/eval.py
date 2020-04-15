@@ -6,13 +6,18 @@ from torch.utils.data import Dataset, DataLoader
 
 
 
-def evaluate(ema, dl_eval):
-    ema.apply_shadow()
-    acc_1_ema, acc_5_ema = eval_model(ema.model, dl_eval)
-    ema.restore()
-    acc_1, acc_5 = eval_model(ema.model, dl_eval)
+def evaluate(model, dl_eval):
+    acc_1, acc_5 = eval_model(model, dl_eval)
     torch.cuda.empty_cache()
-    return acc_1, acc_5, acc_1_ema, acc_5_ema
+    return acc_1, acc_5
+
+#  def evaluate(ema, dl_eval):
+#      ema.apply_shadow()
+#      acc_1_ema, acc_5_ema = eval_model(ema.model, dl_eval)
+#      ema.restore()
+#      acc_1, acc_5 = eval_model(ema.model, dl_eval)
+#      torch.cuda.empty_cache()
+#      return acc_1, acc_5, acc_1_ema, acc_5_ema
 
 
 @torch.no_grad()

@@ -15,6 +15,7 @@ import torch.distributed as dist
 from apex import amp
 
 from efficientnet_refactor import EfficientNet
+from resnet import ResNet50
 from imagenet.imagenet_cv2 import ImageNet
 #  from imagenet.imagenet import ImageNet
 from eval import evaluate
@@ -23,7 +24,7 @@ from logger import setup_logger
 from ema import EMA
 from label_smooth import LabelSmoothSoftmaxCEV2
 from rmsprop_tf import RMSpropTF
-from lr_scheduler import WarmupExpLrScheduler
+from lr_scheduler import WarmupExpLrScheduler, WarmupStepLrScheduler
 
 
 ### bs=32, lr0, 8/23
@@ -53,13 +54,17 @@ def init_model_weights(model):
             #  nn.init.kaiming_normal_(module.weight, mode='fan_out')
             if not module.bias is None: nn.init.constant_(module.bias, 0)
         elif isinstance(module, nn.modules.batchnorm._BatchNorm):
-            nn.init.ones_(module.weight)
+            if hasattr(module, 'last_bn'):
+                nn.init.zeros_(module.weight)
+            else:
+                nn.init.ones_(module.weight)
             nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Linear):
             fan_out = module.weight.size(0)  # fan-out
             fan_in = 0
             init_range = 1.0 / math.sqrt(fan_in + fan_out)
-            module.weight.data.uniform_(-init_range, init_range)
+            #  module.weight.data.uniform_(-init_range, init_range)
+            module.weight.data.normal_(mean=0.0, std=0.01)
             #  nn.init.xavier_uniform_(module.weight)
             nn.init.constant_(module.bias, 0)
 
@@ -76,7 +81,7 @@ def cal_l2_loss(model, weight_decay):
     return 0.5 * l2loss
 
 
-def set_optimizer(model, lr, wd, momentum):
+def set_optimizer(model, lr, wd, momentum, nesterov):
     wd_params, non_wd_params = [], []
     for name, param in model.named_parameters():
         param_len = len(param.size())
@@ -90,39 +95,57 @@ def set_optimizer(model, lr, wd, momentum):
         {'params': wd_params},
         {'params': non_wd_params, 'weight_decay': 0},
     ]
-    optim = RMSpropTF(
-        params_list,
-        lr=lr,
-        alpha=0.9,
-        eps=1e-3,
-        weight_decay=wd,
-        momentum=momentum
-    )
-    #  optim = torch.optim.SGD(
-    #      params_list, lr=lr, weight_decay=wd, momentum=momentum
+    #  optim = RMSpropTF(
+    #      params_list,
+    #      lr=lr,
+    #      alpha=0.9,
+    #      eps=1e-3,
+    #      weight_decay=wd,
+    #      momentum=momentum
     #  )
+    optim = torch.optim.SGD(
+        params_list, lr=lr, weight_decay=wd, momentum=momentum, nesterov=nesterov
+    )
     return optim
 
 
 def main():
+    #  n_gpus = torch.cuda.device_count()
+    #  batchsize = 256
+    #  n_epoches = 450
+    #  n_eval_epoch = 1
+    #  lr = 1.6e-2 * (batchsize / 256) * n_gpus
+    #  weight_decay = 1e-5
+    #  opt_wd = 1e-5
+    #  momentum = 0.9
+    #  warmup = 'linear'
+    #  warmup_ratio = 0
+    #  datapth = './imagenet/'
+    #  model_type = 'b0'
+    #  n_classes = 1000
+    #  cropsize = 224
+    #  num_workers = 4
+    #  ema_alpha = 0.9999
+    #  fp16_level = 'O1'
+    #  use_sync_bn = False
+
     n_gpus = torch.cuda.device_count()
-    batchsize = 256
-    n_epoches = 450
+    batchsize = 64
+    n_epoches = 100
     n_eval_epoch = 1
-    lr = 1.6e-2 * (batchsize / 256) * n_gpus
-    weight_decay = 1e-5
-    opt_wd = 1e-5
+    lr = 0.1 * (batchsize / 256) * n_gpus
+    opt_wd = 1e-4
+    nesterov = True
     momentum = 0.9
     warmup = 'linear'
     warmup_ratio = 0
     datapth = './imagenet/'
-    model_type = 'b0'
     n_classes = 1000
     cropsize = 224
     num_workers = 4
     ema_alpha = 0.9999
-    fp16_level = 'O1'
-    use_sync_bn = False
+    fp16_level = 'O0'
+    use_sync_bn = True
 
     ## dataloader
     dataset_train = ImageNet(datapth, mode='train', cropsize=cropsize)
@@ -149,24 +172,26 @@ def main():
 
     ## model
     #  model = EfficientNet(model_type, n_classes)
-    from models import create_model
-    model = create_model('efficientnet_b0',
-            drop_connect_rate=0.2,
-            global_pool='avg',
-            drop_rate=0.2)
+    model = ResNet50()
+
+    #  from models import create_model
+    #  model = create_model('efficientnet_b0',
+    #          drop_connect_rate=0.2,
+    #          global_pool='avg',
+    #          drop_rate=0.2)
     init_model_weights(model)
     model.cuda()
-    #  crit = nn.CrossEntropyLoss()
-    crit = LabelSmoothSoftmaxCEV2()
+    crit = nn.CrossEntropyLoss()
+    #  crit = LabelSmoothSoftmaxCEV2()
 
     ## optimizer
-    optim = set_optimizer(model, lr, opt_wd, momentum)
+    optim = set_optimizer(model, lr, opt_wd, momentum, nesterov=nesterov)
 
     ## apex
     model, optim = amp.initialize(model, optim, opt_level=fp16_level)
 
     ## ema
-    ema = EMA(model, ema_alpha)
+    #  ema = EMA(model, ema_alpha)
 
     ## sync bn
     if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -183,9 +208,14 @@ def main():
     logger = logging.getLogger()
 
     ## scheduler
-    scheduler = WarmupExpLrScheduler(
-        optim, power=0.97, step_interval=n_iters_per_epoch * 2.4,
-        warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
+    #  scheduler = WarmupExpLrScheduler(
+    #      optim, power=0.97, step_interval=n_iters_per_epoch * 2.4,
+    #      warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
+    #      warmup_ratio=warmup_ratio
+    #  )
+    scheduler = WarmupStepLrScheduler(
+        optim, milestones=[n_iters_per_epoch * el for el in [30, 60, 90]],
+        warmup_iter=n_iters_per_epoch * 3, warmup=warmup,
         warmup_ratio=warmup_ratio
     )
 
@@ -203,8 +233,7 @@ def main():
                 scaled_loss.backward()
             optim.step()
             torch.cuda.synchronize()
-            ema.update_params()
-            scheduler.step()
+            #  ema.update_params()
             time_meter.update()
             loss_meter.update(loss.item())
             if (idx + 1) % 200 == 0:
@@ -213,13 +242,16 @@ def main():
                 msg = 'epoch: {}, iter: {}, lr: {:.4f}, loss: {:.4f}, time: {:.2f}, eta: {}'.format(
                     e + 1, idx + 1, lr_log, loss_meter.get()[0], t_intv, eta)
                 logger.info(msg)
+            scheduler.step()
         torch.cuda.empty_cache()
         if (e + 1) % n_eval_epoch == 0:
             if e > 50: n_eval_epoch = 5
             logger.info('evaluating...')
-            acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
-            msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(
-                    e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
+            #  acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
+            #  msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(
+            acc_1, acc_5 = evaluate(model, dl_eval)
+            msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}'.format(
+                    e + 1, acc_1, acc_5)
             logger.info(msg)
     if dist.is_initialized() and dist.get_rank() == 0:
         torch.save(model.state_dict(), './res/model_final.pth')

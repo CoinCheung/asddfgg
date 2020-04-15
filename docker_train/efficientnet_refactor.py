@@ -19,8 +19,8 @@ def round_channels(n_chan, multiplier):
 
 
 def act_func(x):
-    #  return x * torch.sigmoid(x)
-    return F.relu(x, inplace=True)
+    return x * torch.sigmoid(x)
+    #  return F.relu(x, inplace=True)
 
 
 class DropConnect(nn.Module):
@@ -125,7 +125,7 @@ class MBConv(nn.Module):
             feat = feat * atten
         feat = self.proj_conv(feat)
         feat = self.proj_bn(feat)
-        feat = act_func(feat)
+        feat = act_func(feat) ## todo: try remove this
         if self.skip:
             feat = self.drop_connect(feat)
             feat = feat + x
@@ -135,6 +135,7 @@ class MBConv(nn.Module):
 class EfficientNetBackbone(nn.Module):
 
     def __init__(self, r_width=1., r_depth=1.):
+
         super(EfficientNetBackbone, self).__init__()
 
         layers, self.n_chans = [], []
@@ -255,13 +256,13 @@ class EfficientNet(nn.Module):
         r_width, r_depth, _, r_dropout = self.params_dict[model_type]
         self.backbone = EfficientNetBackbone(r_width, r_depth)
         n_chans = self.backbone.n_chans
-        self.dropout = nn.Dropout(r_dropout)
+        self.dropout = nn.Dropout(r_dropout) if r_dropout > 0.0 else None
         self.fc = nn.Linear(n_chans[-1], n_classes, bias=True)
 
     def forward(self, x):
         feat = self.backbone(x)[-1]
         feat = torch.mean(feat, dim=(2, 3))
-        feat = self.dropout(feat)
+        feat = self.dropout(feat) if not self.dropout is None else feat
         logits = self.fc(feat)
         return logits
 

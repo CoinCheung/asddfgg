@@ -93,6 +93,21 @@ fp16 + lb-smooothv2 + 1024 + wd=2e-5: 71.03/90.13
 614: 官方efficientnet + swish + cv2的transform加官方randaug方法m9nocutout + official_init: 75.02/92.2
 614: 官方efficientnet + swish + cv2的transform加官方randaug方法m9nocutout-mstd0.5 + official_init: 75.17
 
+614: 再用自己的模型: 
+使用efficientnet-pytorch: 73.45/91.16
+
+看是否能复现resnet的结果: 
+    70.61/89.42
+    再来: 72.27/90.77
+    去掉ema: 73.28/91.36
+    使用自制resnet: 74.04/91.66
+    使用初始化: 74.09/91.64
+    bn加上eps: 74.17/91.74
+    去掉warmup: 73.95/91.74
+    加上sync-bn呢:
+
+使用pycls里面的efficientnet和参数: 
+换成自己的mbconv: 
 
 再试试官方的ema
 慢慢调自己的模型, 看能不能跟官方实现效果一样: 

@@ -229,6 +229,28 @@ class RandomHorizontalFlip(object):
         return img[:, ::-1, :]
 
 
+class PCANoise(object):
+
+    def __init__(self, std, eig_val=None, eig_vec=None):
+        self.std = std
+        eig_val = [[0.2175, 0.0188, 0.0045]] if eig_val is None else eig_val
+        eig_vec = [
+                [-0.5675, 0.7192, 0.4009],
+                [-0.5808, -0.0045, -0.8140],
+                [-0.5836, -0.6948, 0.4203]] if eig_vec is None else eig_vec
+        self.eig_vec = np.array(eig_vec)
+        self.eig_val = np.repeat(eig_val, 3, axis=0)
+
+    def __call__(self, im):
+        '''
+        im should be CHW
+        '''
+        alpha = np.random.normal(0, self.std, size=(1, 3))
+        rgb = np.sum(self.eig_vec * alpha * self.eig_val, axis=1)
+        im = im + rgb.reshape(3, 1, 1)
+        return im
+
+
 class ColorJitter(object):
     """Randomly change the brightness, contrast and saturation of an image.
     Args:
@@ -351,42 +373,76 @@ class ToTensor(object):
         """
         if not(_is_numpy_image(pic)):
             raise TypeError('pic should be ndarray. Got {}'.format(type(pic)))
-        img = torch.from_numpy(pic.transpose((2, 0, 1)))
-        return img.float().div_(255)
-
-    def __repr__(self):
-        return self.__class__.__name__ + '()'
+        pic = pic / 255.
+        pic = pic.transpose((2, 0, 1))
+        return pic
 
 
 class Normalize(object):
-    """Normalize a tensor image with mean and standard deviation.
-    Given mean: ``(M1,...,Mn)`` and std: ``(S1,..,Sn)`` for ``n`` channels, this transform
-    will normalize each channel of the input ``torch.*Tensor`` i.e.
-    ``input[channel] = (input[channel] - mean[channel]) / std[channel]``
-    .. note::
-        This transform acts in-place, i.e., it mutates the input tensor.
-    Args:
-        mean (sequence): Sequence of means for each channel.
-        std (sequence): Sequence of standard deviations for each channel.
-    """
 
     def __init__(self, mean, std):
-        self.mean = mean
-        self.std = std
+        self.mean = np.array(mean).reshape(-1, 1, 1)
+        self.std = np.array(std).reshape(-1, 1, 1)
 
-    def __call__(self, tensor):
-        """
-        Args:
-            tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
-        Returns:
-            Tensor: Normalized Tensor image.
-        """
-        if not _is_tensor_image(tensor):
-            raise TypeError('tensor is not a torch image.')
-        for t, m, s in zip(tensor, self.mean, self.std):
-            t.sub_(m).div_(s)
-        return tensor
+    def __call__(self, im):
+        im = im - self.mean
+        im = im / self.std
+        return im
 
-    def __repr__(self):
-        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
+
+#  class ToTensor(object):
+#      """Convert a ``PIL Image`` or ``numpy.ndarray`` to tensor.
+#      Converts a PIL Image or numpy.ndarray (H x W x C) in the range
+#      [0, 255] to a torch.FloatTensor of shape (C x H x W) in the range [0.0, 1.0].
+#      """
+#
+#      def __call__(self, pic):
+#          """
+#          Args:
+#              pic (PIL Image or numpy.ndarray): Image to be converted to tensor.
+#          Returns:
+#              Tensor: Converted image.
+#          """
+#          if not(_is_numpy_image(pic)):
+#              raise TypeError('pic should be ndarray. Got {}'.format(type(pic)))
+#          pic = pic.transpose((2, 0, 1))
+#          if not pic.data.c_contiguous: pic = pic.copy()
+#          img = torch.from_numpy(pic)
+#          return img.float().div_(255)
+#
+#      def __repr__(self):
+#          return self.__class__.__name__ + '()'
+#
+
+#  class Normalize(object):
+#      """Normalize a tensor image with mean and standard deviation.
+#      Given mean: ``(M1,...,Mn)`` and std: ``(S1,..,Sn)`` for ``n`` channels, this transform
+#      will normalize each channel of the input ``torch.*Tensor`` i.e.
+#      ``input[channel] = (input[channel] - mean[channel]) / std[channel]``
+#      .. note::
+#          This transform acts in-place, i.e., it mutates the input tensor.
+#      Args:
+#          mean (sequence): Sequence of means for each channel.
+#          std (sequence): Sequence of standard deviations for each channel.
+#      """
+#
+#      def __init__(self, mean, std):
+#          self.mean = mean
+#          self.std = std
+#
+#      def __call__(self, tensor):
+#          """
+#          Args:
+#              tensor (Tensor): Tensor image of size (C, H, W) to be normalized.
+#          Returns:
+#              Tensor: Normalized Tensor image.
+#          """
+#          if not _is_tensor_image(tensor):
+#              raise TypeError('tensor is not a torch image.')
+#          for t, m, s in zip(tensor, self.mean, self.std):
+#              t.sub_(m).div_(s)
+#          return tensor
+#
+#      def __repr__(self):
+#          return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
