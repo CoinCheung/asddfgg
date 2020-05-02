@@ -104,7 +104,14 @@ fp16 + lb-smooothv2 + 1024 + wd=2e-5: 71.03/90.13
     使用初始化: 74.09/91.64
     bn加上eps: 74.17/91.74
     去掉warmup: 73.95/91.74
-    加上sync-bn呢:
+    加上sync-bn呢: 40个epoch才21，有问题
+    换上apex的syncbn和DDP: 貌似可以了，是sync-bn使用位置的问题: 73.88/91.53
+    使用pil的函数去load呢: 72.62/91.12
+    使用inter_cubic的interpolation: 
+
+    使用pycls里面的opt参数: 74.15/91.76
+    去掉batch_sampler: 74.15/91.76
+
 
 使用pycls里面的efficientnet和参数: 
 换成自己的mbconv: 

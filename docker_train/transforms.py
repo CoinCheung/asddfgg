@@ -21,7 +21,7 @@ def _is_tensor_image(img):
     return torch.is_tensor(img) and img.ndimension() == 3
 
 
-def resize(img, size, interpolation=cv2.INTER_LINEAR):
+def resize(img, size, interpolation=cv2.INTER_CUBIC):
     r"""Resize the input numpy ndarray to the given size.
     Args:
         img (numpy ndarray): Image to be resized.
@@ -142,7 +142,7 @@ class RandomResizedCrop(object):
         interpolation: Default: cv2.INTER_CUBIC
     """
 
-    def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.), interpolation=cv2.INTER_LINEAR):
+    def __init__(self, size, scale=(0.08, 1.0), ratio=(3. / 4., 4. / 3.), interpolation=cv2.INTER_CUBIC):
         self.size = (size, size)
         self.interpolation = interpolation
         self.scale = scale
@@ -210,16 +210,18 @@ class ResizeCenterCrop(object):
 
     def __call__(self, im):
         W, H, C = im.shape
+        crop_size = self.crop_size[0]
+        short_side = int(crop_size * 256 / 224)
         if W < H:
-            w = 224 + 32
+            w = short_side
             h = int(w * H / W)
         else:
-            h = 224 + 32
+            h = short_side
             w = int(h * W / H)
         size = (w, h)
-        im = cv2.resize(im, size)
-        i, j = (h - 224) // 2, (w - 224) // 2
-        im = im[i:i+224, j:j+224, :]
+        im = cv2.resize(im, size, interpolation=cv2.INTER_CUBIC)
+        i, j = (h - crop_size) // 2, (w - crop_size) // 2
+        im = im[i:i+crop_size, j:j+crop_size, :]
         return im
 
 

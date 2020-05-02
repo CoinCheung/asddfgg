@@ -12,7 +12,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import torch.distributed as dist
-from apex import amp
+from apex import amp, parallel
 
 from efficientnet_refactor import EfficientNet
 from resnet import ResNet50
@@ -54,7 +54,7 @@ def init_model_weights(model):
             #  nn.init.kaiming_normal_(module.weight, mode='fan_out')
             if not module.bias is None: nn.init.constant_(module.bias, 0)
         elif isinstance(module, nn.modules.batchnorm._BatchNorm):
-            if hasattr(module, 'last_bn'):
+            if hasattr(module, 'last_bn') and module.last_bn:
                 nn.init.zeros_(module.weight)
             else:
                 nn.init.ones_(module.weight)
@@ -133,8 +133,8 @@ def main():
     batchsize = 64
     n_epoches = 100
     n_eval_epoch = 1
-    lr = 0.1 * (batchsize / 256) * n_gpus
-    opt_wd = 1e-4
+    lr = 0.1 * (batchsize / 128) * n_gpus
+    opt_wd = 5e-5
     nesterov = True
     momentum = 0.9
     warmup = 'linear'
@@ -145,27 +145,35 @@ def main():
     num_workers = 4
     ema_alpha = 0.9999
     fp16_level = 'O0'
-    use_sync_bn = True
+    use_sync_bn = False
 
     ## dataloader
     dataset_train = ImageNet(datapth, mode='train', cropsize=cropsize)
     sampler_train = torch.utils.data.distributed.DistributedSampler(
         dataset_train, shuffle=True)
-    batch_sampler_train = torch.utils.data.sampler.BatchSampler(
-        sampler_train, batchsize, drop_last=True
-    )
+    #  batch_sampler_train = torch.utils.data.sampler.BatchSampler(
+    #      sampler_train, batchsize, drop_last=True
+    #  )
+    #  dl_train = DataLoader(
+    #      dataset_train, batch_sampler=batch_sampler_train, num_workers=num_workers, pin_memory=True
+    #  )
     dl_train = DataLoader(
-        dataset_train, batch_sampler=batch_sampler_train, num_workers=num_workers, pin_memory=True
+        dataset_train, sampler=sampler_train, batch_size=batchsize, shuffle=False,
+        num_workers=num_workers, pin_memory=True, drop_last=True
     )
     dataset_eval = ImageNet(datapth, mode='val', cropsize=cropsize)
     sampler_val = torch.utils.data.distributed.DistributedSampler(
         dataset_eval, shuffle=False)
-    batch_sampler_val = torch.utils.data.sampler.BatchSampler(
-        sampler_val, batchsize * 2, drop_last=False
-    )
+    #  batch_sampler_val = torch.utils.data.sampler.BatchSampler(
+    #      sampler_val, batchsize * 2, drop_last=False
+    #  )
+    #  dl_eval = DataLoader(
+    #      dataset_eval, batch_sampler=batch_sampler_val,
+    #      num_workers=4, pin_memory=True
+    #  )
     dl_eval = DataLoader(
-        dataset_eval, batch_sampler=batch_sampler_val,
-        num_workers=4, pin_memory=True
+        dataset_eval, sampler=sampler_val, batch_size=batchsize, shuffle=False,
+        num_workers=4, pin_memory=True, drop_last=False
     )
     n_iters_per_epoch = len(dataset_train) // n_gpus // batchsize
     n_iters = n_epoches * n_iters_per_epoch
@@ -179,6 +187,10 @@ def main():
     #          drop_connect_rate=0.2,
     #          global_pool='avg',
     #          drop_rate=0.2)
+
+    ## sync bn
+    #  if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    if use_sync_bn: model = parallel.convert_syncbn_model(model)
     init_model_weights(model)
     model.cuda()
     crit = nn.CrossEntropyLoss()
@@ -193,14 +205,13 @@ def main():
     ## ema
     #  ema = EMA(model, ema_alpha)
 
-    ## sync bn
-    if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
     ## ddp training
-    local_rank = dist.get_rank()
-    model = nn.parallel.DistributedDataParallel(
-        model, device_ids=[local_rank, ], output_device=local_rank
-    )
+    model = parallel.DistributedDataParallel(model, delay_allreduce=True)
+    #  local_rank = dist.get_rank()
+    #  model = nn.parallel.DistributedDataParallel(
+    #      model, device_ids=[local_rank, ], output_device=local_rank
+    #  )
 
     ## log meters
     time_meter = TimeMeter(n_iters)
@@ -215,7 +226,7 @@ def main():
     #  )
     scheduler = WarmupStepLrScheduler(
         optim, milestones=[n_iters_per_epoch * el for el in [30, 60, 90]],
-        warmup_iter=n_iters_per_epoch * 3, warmup=warmup,
+        warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
         warmup_ratio=warmup_ratio
     )
 
