@@ -112,6 +112,12 @@ fp16 + lb-smooothv2 + 1024 + wd=2e-5: 71.03/90.13
     使用pycls里面的opt参数: 74.15/91.76
     去掉batch_sampler: 74.15/91.76
 
+按官方的做: 
+    bn加正常的wd, 不加warmup， 
+        bs=1024+lr=0.1: 71.66/90.35
+        bs=1024+随batchsize变化: 
+
+    改变一下eval的做法呢，按pretrain那个项目的来:  
 
 使用pycls里面的efficientnet和参数: 
 换成自己的mbconv: 

@@ -84,7 +84,7 @@ def cal_l2_loss(model, weight_decay):
 def set_optimizer(model, lr, wd, momentum, nesterov):
     wd_params, non_wd_params = [], []
     for name, param in model.named_parameters():
-        param_len = len(param.size())
+        param_len = param.dim()
         if param_len == 4 or param_len == 2:
             wd_params.append(param)
         elif param_len == 1:
@@ -130,15 +130,16 @@ def main():
     #  use_sync_bn = False
 
     n_gpus = torch.cuda.device_count()
-    batchsize = 64
+    batchsize = 128
     n_epoches = 100
     n_eval_epoch = 1
     lr = 0.1 * (batchsize / 128) * n_gpus
-    opt_wd = 5e-5
+    #  lr = 0.1
+    opt_wd = 1e-4
     nesterov = True
     momentum = 0.9
     warmup = 'linear'
-    warmup_ratio = 0
+    warmup_ratio = 0.1
     datapth = './imagenet/'
     n_classes = 1000
     cropsize = 224
@@ -226,7 +227,7 @@ def main():
     #  )
     scheduler = WarmupStepLrScheduler(
         optim, milestones=[n_iters_per_epoch * el for el in [30, 60, 90]],
-        warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
+        warmup_iter=n_iters_per_epoch * 0, warmup=warmup,
         warmup_ratio=warmup_ratio
     )
 
