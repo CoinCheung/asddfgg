@@ -115,9 +115,28 @@ fp16 + lb-smooothv2 + 1024 + wd=2e-5: 71.03/90.13
 按官方的做: 
     bn加正常的wd, 不加warmup， 
         bs=1024+lr=0.1: 71.66/90.35
-        bs=1024+随batchsize变化: 
+        bs=1024+随batchsize变化: 74.18/91.74
+        使用example里面的dataloader: 76.82/93.44
+opencv vs pil:
+    pil: 76.75:
+    opencv: 
+        直接指定256: 76.13
+    opencv的resize + pil的其他: 
+        linear: 76.12
+        cubic: 74.96
 
-    改变一下eval的做法呢，按pretrain那个项目的来:  
+#####
+1. 前面不行的原因是
+    * pil reisize的interpolate的方法需要改成bilinear才行，如果怎么都不说只使用默认的话，怕是不太行，torchvision.transforms里面就给设成了bilinear
+    * opencv的resize的h和w搞返了
+####
+
+resnet50: 
+    没正则: 76.53/93.41
+    加ra:
+        prob=0.5: 77.72/93.85
+        prob=1:
+        prob=0.1:
 
 使用pycls里面的efficientnet和参数: 
 换成自己的mbconv: 

@@ -44,16 +44,19 @@ class ImageNet(Dataset):
         self.trans_train = T.Compose([
             T.RandomResizedCrop(cropsize),
             T.RandomHorizontalFlip(),
+            RandomAugment(2, 9),
             T.ToTensor(),
             T.PCANoise(0.1),
             T.Normalize(img_mean, img_std)
-            #  RandomAugment(2, 9),
             #  rand_augment_transform('rand-m9-mstd0.5', {'translate_const': 100, 'img_mean': randaug_mean,}),
             #  T.ColorJitter(0.4, 0.4, 0.4),
         ])
         self.random_erasing = RandomErasing(0.2, mode='pixel', max_count=1)
         self.trans_val = T.Compose([
-            T.ResizeCenterCrop((cropsize, cropsize)),
+            T.ResizeCenterCrop(crop_size=224, short_size=256),
+            #  T.ResizeCenterCrop((cropsize, cropsize)),
+            #  T.Resize(256),
+            #  T.CenterCrop(224),
             T.ToTensor(),
             T.Normalize(img_mean, img_std)
         ])
@@ -66,12 +69,16 @@ class ImageNet(Dataset):
     def __getitem__(self, idx):
         impth, label = self.samples[idx]
         im = self.readimg(impth)
+        #  im = T.Resize(256)(im)
+        #  from PIL import Image
+        #  im = Image.fromarray(im)
+        #  im = Image.open(impth).convert('RGB')
         if self.mode == 'train':
             im = self.trans_train(im)
         else:
             im = self.trans_val(im)
-        if not im.data.c_contiguous: im = im.copy()
-        im = torch.from_numpy(im)
+        #  if not im.data.c_contiguous: im = im.copy()
+        #  im = torch.from_numpy(im)
         return im, label
 
     def __len__(self):

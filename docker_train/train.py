@@ -1,5 +1,6 @@
 
 import os
+import os.path as osp
 import pickle
 import argparse
 import logging
@@ -13,6 +14,8 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import torch.distributed as dist
 from apex import amp, parallel
+import torchvision.transforms as transforms
+import torchvision.datasets as datasets
 
 from efficientnet_refactor import EfficientNet
 from resnet import ResNet50
@@ -145,39 +148,69 @@ def main():
     cropsize = 224
     num_workers = 4
     ema_alpha = 0.9999
-    fp16_level = 'O0'
+    fp16_level = 'O1'
     use_sync_bn = False
 
     ## dataloader
     dataset_train = ImageNet(datapth, mode='train', cropsize=cropsize)
     sampler_train = torch.utils.data.distributed.DistributedSampler(
         dataset_train, shuffle=True)
-    #  batch_sampler_train = torch.utils.data.sampler.BatchSampler(
-    #      sampler_train, batchsize, drop_last=True
-    #  )
-    #  dl_train = DataLoader(
-    #      dataset_train, batch_sampler=batch_sampler_train, num_workers=num_workers, pin_memory=True
-    #  )
-    dl_train = DataLoader(
-        dataset_train, sampler=sampler_train, batch_size=batchsize, shuffle=False,
-        num_workers=num_workers, pin_memory=True, drop_last=True
+    batch_sampler_train = torch.utils.data.sampler.BatchSampler(
+        sampler_train, batchsize, drop_last=True
     )
+    dl_train = DataLoader(
+        dataset_train, batch_sampler=batch_sampler_train, num_workers=num_workers, pin_memory=True
+    )
+    #  dl_train = DataLoader(
+    #      dataset_train, sampler=sampler_train, batch_size=batchsize, shuffle=(sampler_train is None),
+    #      num_workers=num_workers, pin_memory=True#, drop_last=True
+    #  )
     dataset_eval = ImageNet(datapth, mode='val', cropsize=cropsize)
     sampler_val = torch.utils.data.distributed.DistributedSampler(
         dataset_eval, shuffle=False)
-    #  batch_sampler_val = torch.utils.data.sampler.BatchSampler(
-    #      sampler_val, batchsize * 2, drop_last=False
-    #  )
-    #  dl_eval = DataLoader(
-    #      dataset_eval, batch_sampler=batch_sampler_val,
-    #      num_workers=4, pin_memory=True
-    #  )
-    dl_eval = DataLoader(
-        dataset_eval, sampler=sampler_val, batch_size=batchsize, shuffle=False,
-        num_workers=4, pin_memory=True, drop_last=False
+    batch_sampler_val = torch.utils.data.sampler.BatchSampler(
+        sampler_val, batchsize * 2, drop_last=False
     )
+    dl_eval = DataLoader(
+        dataset_eval, batch_sampler=batch_sampler_val,
+        num_workers=4, pin_memory=True
+    )
+    #  dl_eval = DataLoader(
+    #      dataset_eval, sampler=sampler_val, batch_size=batchsize, shuffle=False,
+    #      num_workers=4, pin_memory=True, drop_last=False
+    #  )
     n_iters_per_epoch = len(dataset_train) // n_gpus // batchsize
     n_iters = n_epoches * n_iters_per_epoch
+
+    ### used in examples
+    #  traindir = osp.join('/data1/zzy/datasets/imagenet', 'train')
+    #  valdir = osp.join('/data1/zzy/datasets/imagenet', 'val_cls')
+    #  normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+    #                                   std=[0.229, 0.224, 0.225])
+    #
+    #  train_dataset = datasets.ImageFolder(
+    #      traindir,
+    #      transforms.Compose([
+    #          transforms.RandomResizedCrop(224),
+    #          transforms.RandomHorizontalFlip(),
+    #          transforms.ToTensor(),
+    #          normalize,
+    #      ]))
+    #  train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
+    #  dl_train = torch.utils.data.DataLoader(
+    #      train_dataset, batch_size=batchsize, shuffle=(train_sampler is None),
+    #      num_workers=num_workers, pin_memory=True, sampler=train_sampler)
+    #  dl_eval = torch.utils.data.DataLoader(
+    #      datasets.ImageFolder(valdir, transforms.Compose([
+    #          transforms.Resize(256),
+    #          transforms.CenterCrop(224),
+    #          transforms.ToTensor(),
+    #          normalize,
+    #      ])),
+    #      batch_size=batchsize, shuffle=False,
+    #      num_workers=num_workers, pin_memory=True)
+    #  n_iters_per_epoch = len(train_dataset) // n_gpus // batchsize
+    #  n_iters = n_epoches * n_iters_per_epoch
 
     ## model
     #  model = EfficientNet(model_type, n_classes)
@@ -204,7 +237,7 @@ def main():
     model, optim = amp.initialize(model, optim, opt_level=fp16_level)
 
     ## ema
-    #  ema = EMA(model, ema_alpha)
+    ema = EMA(model, ema_alpha)
 
 
     ## ddp training
@@ -233,6 +266,7 @@ def main():
 
     ## train loop
     for e in range(n_epoches):
+        #  train_sampler.set_epoch(e)
         sampler_train.set_epoch(e)
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
@@ -266,7 +300,7 @@ def main():
                     e + 1, acc_1, acc_5)
             logger.info(msg)
     if dist.is_initialized() and dist.get_rank() == 0:
-        torch.save(model.state_dict(), './res/model_final.pth')
+        torch.save(model.module.state_dict(), './res/model_final.pth')
 
 
 def parse_args():

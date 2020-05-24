@@ -29,7 +29,8 @@ class ResizeCenterCrop(object):
             h = 224 + 32
             w = int(h * W / H)
         size = (w, h)
-        im = im.resize(size)
+        im = im.resize(size, Image.BILINEAR) # bilinear is very important
+        #  im = im.resize(size)
         im = T.CenterCrop(self.crop_size)(im)
         return im
 
@@ -66,9 +67,11 @@ class ImageNet(Dataset):
             #  rand_augment_transform('rand-m9-mstd0.5', {'translate_const': 100, 'img_mean': randaug_mean,}),
             #  T.ColorJitter(0.4, 0.4, 0.4),
         ])
-        self.random_erasing = RandomErasing(0.2, mode='pixel', max_count=1)
+        #  self.random_erasing = RandomErasing(0.2, mode='pixel', max_count=1)
         self.trans_val = T.Compose([
             ResizeCenterCrop((cropsize, cropsize)),
+            #  T.Resize(256),
+            #  T.CenterCrop(224),
         ])
         self.to_tensor = T.Compose([
             T.ToTensor(),

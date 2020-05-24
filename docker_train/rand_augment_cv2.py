@@ -354,7 +354,7 @@ class RandomOp(object):
 OP_NAMES = [
     'AutoContrast', 'Equalize', 'Invert', 'Rotate', 'Posterize', 'Solarize',
     'Color',  'Contrast', 'Brightness', 'Sharpness', 'ShearX', 'ShearY',
-    'TranslateX', 'TranslateY', 'SolarizeAdd',# 'Cutout'
+    'TranslateX', 'TranslateY', 'SolarizeAdd', 'Cutout'
 ]
 
 
@@ -365,7 +365,7 @@ class RandomAugment(object):
     def __init__(self, N, M):
         self.N = N
         self.M = M
-        self.ops = [RandomOp(name, 0.5) for name in OP_NAMES]
+        self.ops = [RandomOp(name, 1) for name in OP_NAMES]
 
     def __call__(self, img):
         ops = np.random.choice(self.ops, self.N)

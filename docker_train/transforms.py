@@ -22,42 +22,22 @@ def _is_tensor_image(img):
 
 
 def resize(img, size, interpolation=cv2.INTER_CUBIC):
-    r"""Resize the input numpy ndarray to the given size.
-    Args:
-        img (numpy ndarray): Image to be resized.
-        size (sequence or int): Desired output size. If size is a sequence like
-            (h, w), the output size will be matched to this. If size is an int,
-            the smaller edge of the image will be matched to this number maintaing
-            the aspect ratio. i.e, if height > width, then image will be rescaled to
-            :math:`\left(\text{size} \times \frac{\text{height}}{\text{width}}, \text{size}\right)`
-        interpolation (int, optional): Desired interpolation. Default is
-            ``cv2.INTER_CUBIC``
-    Returns:
-        PIL Image: Resized image.
-    """
-    if not _is_numpy_image(img):
-        raise TypeError('img should be numpy image. Got {}'.format(type(img)))
-    if not (isinstance(size, int) or (isinstance(size, collections.Iterable) and len(size) == 2)):
-        raise TypeError('Got inappropriate size arg: {}'.format(size))
-    w, h, =  size
-
+    '''
+        size is (H, W)
+    '''
+    h, w, c = img.shape
     if isinstance(size, int):
-        if (w <= h and w == size) or (h <= w and h == size):
-            return img
+        if min(h, w) == size: return img
         if w < h:
             ow = size
             oh = int(size * h / w)
-            output = cv2.resize(img, dsize=(ow, oh), interpolation=interpolation)
         else:
             oh = size
             ow = int(size * w / h)
-            output = cv2.resize(img, dsize=(ow, oh), interpolation=interpolation)
+        output = cv2.resize(img, dsize=(ow, oh), interpolation=interpolation)
     else:
         output = cv2.resize(img, dsize=size[::-1], interpolation=interpolation)
-    if img.shape[2]==1:
-        return(output[:,:,np.newaxis])
-    else:
-        return(output)
+    return output
 
 
 def adjust_contrast(img, contrast_factor):
@@ -192,37 +172,53 @@ class RandomResizedCrop(object):
         assert _is_numpy_image(img), 'img should be numpy image'
         img = img[i:i+h, j:j+w, :]
         img = resize(img, self.size, interpolation=self.interpolation)
+        #  img = resize(img, self.size, interpolation=cv2.INTER_LINEAR)
         return img
-
-    def __repr__(self):
-        interpolate_str = _pil_interpolation_to_str[self.interpolation]
-        format_string = self.__class__.__name__ + '(size={0}'.format(self.size)
-        format_string += ', scale={0}'.format(tuple(round(s, 4) for s in self.scale))
-        format_string += ', ratio={0}'.format(tuple(round(r, 4) for r in self.ratio))
-        format_string += ', interpolation={0})'.format(interpolate_str)
-        return format_string
 
 
 class ResizeCenterCrop(object):
+
+    def __init__(self, crop_size=224, short_size=256, interpolation=cv2.INTER_CUBIC):
+        self.interpolation = interpolation
+        self.short_size = short_size
+        if isinstance(crop_size, int):
+            self.crop_size = [crop_size for _ in range(2)]
+        else:
+            assert len(crop_size) == 2
+            self.crop_size = crop_size
+
+    def __call__(self, im):
+        im = resize(im, self.short_size, interpolation=self.interpolation)
+        ch, cw = self.crop_size
+        h, w, _ = im.shape
+        i, j = (h - ch) // 2, (w - cw) // 2
+        im = im[i:i+ch, j:j+cw, :]
+        return im
+
+
+class Resize(object):
+
+    def __init__(self, short_size, interpolation=cv2.INTER_CUBIC):
+        self.interpolation = interpolation
+        self.short_size = short_size
+
+    def __call__(self, im):
+        return resize(im, self.short_size, interpolation=self.interpolation)
+
+
+class CenterCrop(object):
 
     def __init__(self, crop_size):
         self.crop_size = crop_size
 
     def __call__(self, im):
-        W, H, C = im.shape
-        crop_size = self.crop_size[0]
-        short_side = int(crop_size * 256 / 224)
-        if W < H:
-            w = short_side
-            h = int(w * H / W)
+        if isinstance(self.crop_size, int):
+            ch, cw = self.crop_size, self.crop_size
         else:
-            h = short_side
-            w = int(h * W / H)
-        size = (w, h)
-        im = cv2.resize(im, size, interpolation=cv2.INTER_CUBIC)
-        i, j = (h - crop_size) // 2, (w - crop_size) // 2
-        im = im[i:i+crop_size, j:j+crop_size, :]
-        return im
+            ch, cw = self.crop_size
+        h, w, c = im.shape
+        i, j = (h - ch) // 2, (w - cw) // 2
+        return im[i:i+ch, j:j+cw, :]
 
 
 class RandomHorizontalFlip(object):
@@ -367,15 +363,9 @@ class ToTensor(object):
     """
 
     def __call__(self, pic):
-        """
-        Args:
-            pic (PIL Image or numpy.ndarray): Image to be converted to tensor.
-        Returns:
-            Tensor: Converted image.
-        """
         if not(_is_numpy_image(pic)):
             raise TypeError('pic should be ndarray. Got {}'.format(type(pic)))
-        pic = pic / 255.
+        pic = pic.astype(np.float32) / 255.
         pic = pic.transpose((2, 0, 1))
         return pic
 
@@ -383,8 +373,8 @@ class ToTensor(object):
 class Normalize(object):
 
     def __init__(self, mean, std):
-        self.mean = np.array(mean).reshape(-1, 1, 1)
-        self.std = np.array(std).reshape(-1, 1, 1)
+        self.mean = np.array(mean, dtype=np.float32).reshape(-1, 1, 1)
+        self.std = np.array(std, dtype=np.float32).reshape(-1, 1, 1)
 
     def __call__(self, im):
         im = im - self.mean
