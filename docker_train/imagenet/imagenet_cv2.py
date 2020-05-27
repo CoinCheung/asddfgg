@@ -9,10 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 import torchvision
 import transforms as T
 
-from autoaugment import ImageNetPolicy
 from rand_augment_cv2 import RandomAugment
-from random_erasing import RandomErasing
-
 
 
 class ImageNet(Dataset):
@@ -51,7 +48,6 @@ class ImageNet(Dataset):
             #  rand_augment_transform('rand-m9-mstd0.5', {'translate_const': 100, 'img_mean': randaug_mean,}),
             #  T.ColorJitter(0.4, 0.4, 0.4),
         ])
-        self.random_erasing = RandomErasing(0.2, mode='pixel', max_count=1)
         self.trans_val = T.Compose([
             T.ResizeCenterCrop(crop_size=224, short_size=256),
             #  T.ResizeCenterCrop((cropsize, cropsize)),

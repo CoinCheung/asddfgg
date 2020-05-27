@@ -2,7 +2,10 @@ import torch
 import torch.distributed as dist
 
 
+
+
 class EMA(object):
+
     def __init__(self, model, alpha):
         self.step = 0
         self.model = model

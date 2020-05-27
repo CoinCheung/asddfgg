@@ -135,8 +135,17 @@ resnet50:
     没正则: 76.53/93.41
     加ra:
         prob=0.5: 77.72/93.85
-        prob=1:
+        prob=1: 77.37/93.66
         prob=0.1:
+merge之后的:
+
+加上ema: 
+    ema在model之后: 不稳定了
+    ema在ddp之后:  不稳定了
+    ema不带fp32的: 
+    单独model的ema呢: 
+
+加上lbsmooth:
 
 使用pycls里面的efficientnet和参数: 
 换成自己的mbconv: 
@@ -144,8 +153,6 @@ resnet50:
 再试试官方的ema
 慢慢调自己的模型, 看能不能跟官方实现效果一样: 
 
-2. 加上randaug_cv2 + prob 并且不带cutout的:
-randaug加上cutout然后去掉random-erasing: 
 
 mixup: 同batch mix和异batch mix: 直接上lambda还是1-lambda, 使用自定义的ce还是nn.ce 还是sigmoid
 cutmix:

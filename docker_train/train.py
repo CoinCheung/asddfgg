@@ -161,10 +161,6 @@ def main():
     dl_train = DataLoader(
         dataset_train, batch_sampler=batch_sampler_train, num_workers=num_workers, pin_memory=True
     )
-    #  dl_train = DataLoader(
-    #      dataset_train, sampler=sampler_train, batch_size=batchsize, shuffle=(sampler_train is None),
-    #      num_workers=num_workers, pin_memory=True#, drop_last=True
-    #  )
     dataset_eval = ImageNet(datapth, mode='val', cropsize=cropsize)
     sampler_val = torch.utils.data.distributed.DistributedSampler(
         dataset_eval, shuffle=False)
@@ -175,42 +171,9 @@ def main():
         dataset_eval, batch_sampler=batch_sampler_val,
         num_workers=4, pin_memory=True
     )
-    #  dl_eval = DataLoader(
-    #      dataset_eval, sampler=sampler_val, batch_size=batchsize, shuffle=False,
-    #      num_workers=4, pin_memory=True, drop_last=False
-    #  )
     n_iters_per_epoch = len(dataset_train) // n_gpus // batchsize
     n_iters = n_epoches * n_iters_per_epoch
 
-    ### used in examples
-    #  traindir = osp.join('/data1/zzy/datasets/imagenet', 'train')
-    #  valdir = osp.join('/data1/zzy/datasets/imagenet', 'val_cls')
-    #  normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-    #                                   std=[0.229, 0.224, 0.225])
-    #
-    #  train_dataset = datasets.ImageFolder(
-    #      traindir,
-    #      transforms.Compose([
-    #          transforms.RandomResizedCrop(224),
-    #          transforms.RandomHorizontalFlip(),
-    #          transforms.ToTensor(),
-    #          normalize,
-    #      ]))
-    #  train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    #  dl_train = torch.utils.data.DataLoader(
-    #      train_dataset, batch_size=batchsize, shuffle=(train_sampler is None),
-    #      num_workers=num_workers, pin_memory=True, sampler=train_sampler)
-    #  dl_eval = torch.utils.data.DataLoader(
-    #      datasets.ImageFolder(valdir, transforms.Compose([
-    #          transforms.Resize(256),
-    #          transforms.CenterCrop(224),
-    #          transforms.ToTensor(),
-    #          normalize,
-    #      ])),
-    #      batch_size=batchsize, shuffle=False,
-    #      num_workers=num_workers, pin_memory=True)
-    #  n_iters_per_epoch = len(train_dataset) // n_gpus // batchsize
-    #  n_iters = n_epoches * n_iters_per_epoch
 
     ## model
     #  model = EfficientNet(model_type, n_classes)
@@ -224,9 +187,10 @@ def main():
 
     ## sync bn
     #  if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    if use_sync_bn: model = parallel.convert_syncbn_model(model)
+
     init_model_weights(model)
     model.cuda()
+    if use_sync_bn: model = parallel.convert_syncbn_model(model)
     crit = nn.CrossEntropyLoss()
     #  crit = LabelSmoothSoftmaxCEV2()
 
@@ -236,9 +200,6 @@ def main():
     ## apex
     model, optim = amp.initialize(model, optim, opt_level=fp16_level)
 
-    ## ema
-    ema = EMA(model, ema_alpha)
-
 
     ## ddp training
     model = parallel.DistributedDataParallel(model, delay_allreduce=True)
@@ -246,6 +207,9 @@ def main():
     #  model = nn.parallel.DistributedDataParallel(
     #      model, device_ids=[local_rank, ], output_device=local_rank
     #  )
+
+    ## ema
+    ema = EMA(model, ema_alpha)
 
     ## log meters
     time_meter = TimeMeter(n_iters)
@@ -266,7 +230,6 @@ def main():
 
     ## train loop
     for e in range(n_epoches):
-        #  train_sampler.set_epoch(e)
         sampler_train.set_epoch(e)
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
@@ -279,7 +242,7 @@ def main():
                 scaled_loss.backward()
             optim.step()
             torch.cuda.synchronize()
-            #  ema.update_params()
+            ema.update_params()
             time_meter.update()
             loss_meter.update(loss.item())
             if (idx + 1) % 200 == 0:
@@ -293,11 +256,11 @@ def main():
         if (e + 1) % n_eval_epoch == 0:
             if e > 50: n_eval_epoch = 5
             logger.info('evaluating...')
-            #  acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
-            #  msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(
-            acc_1, acc_5 = evaluate(model, dl_eval)
-            msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}'.format(
-                    e + 1, acc_1, acc_5)
+            acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
+            msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
+            #  acc_1, acc_5 = evaluate(model, dl_eval)
+            #  msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}'.format(
+            #          e + 1, acc_1, acc_5)
             logger.info(msg)
     if dist.is_initialized() and dist.get_rank() == 0:
         torch.save(model.module.state_dict(), './res/model_final.pth')
