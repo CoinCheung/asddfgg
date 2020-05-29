@@ -16,10 +16,10 @@ from imagenet.imagenet_cv2 import ImageNet
 #      return acc_1, acc_5
 
 def evaluate(ema, dl_eval):
-    ema.apply_shadow()
-    acc_1_ema, acc_5_ema = eval_model(ema.model, dl_eval)
-    ema.restore()
-    acc_1, acc_5 = eval_model(ema.model, dl_eval)
+    model = ema.ema_model
+    acc_1_ema, acc_5_ema = eval_model(model, dl_eval)
+    model = ema.model
+    acc_1, acc_5 = eval_model(model, dl_eval)
     torch.cuda.empty_cache()
     return acc_1, acc_5, acc_1_ema, acc_5_ema
 

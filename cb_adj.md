@@ -143,7 +143,8 @@ merge之后的:
     ema在model之后: 不稳定了
     ema在ddp之后:  不稳定了
     ema不带fp32的: 
-    单独model的ema呢: 
+    单独model的ema呢: 稳定了
+    看样子不是
 
 加上lbsmooth:
 

@@ -14,8 +14,6 @@ import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import torch.distributed as dist
 from apex import amp, parallel
-import torchvision.transforms as transforms
-import torchvision.datasets as datasets
 
 from efficientnet_refactor import EfficientNet
 from resnet import ResNet50
@@ -200,6 +198,8 @@ def main():
     ## apex
     model, optim = amp.initialize(model, optim, opt_level=fp16_level)
 
+    ## ema
+    ema = EMA(model, ema_alpha)
 
     ## ddp training
     model = parallel.DistributedDataParallel(model, delay_allreduce=True)
@@ -207,9 +207,6 @@ def main():
     #  model = nn.parallel.DistributedDataParallel(
     #      model, device_ids=[local_rank, ], output_device=local_rank
     #  )
-
-    ## ema
-    ema = EMA(model, ema_alpha)
 
     ## log meters
     time_meter = TimeMeter(n_iters)
@@ -258,12 +255,10 @@ def main():
             logger.info('evaluating...')
             acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
             msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
-            #  acc_1, acc_5 = evaluate(model, dl_eval)
-            #  msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}'.format(
-            #          e + 1, acc_1, acc_5)
             logger.info(msg)
     if dist.is_initialized() and dist.get_rank() == 0:
         torch.save(model.module.state_dict(), './res/model_final.pth')
+        torch.save(ema.ema_model.state_dict(), './res/model_final_ema.pth')
 
 
 def parse_args():
