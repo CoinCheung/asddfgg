@@ -96,58 +96,59 @@ def set_optimizer(model, lr, wd, momentum, nesterov):
         {'params': wd_params},
         {'params': non_wd_params, 'weight_decay': 0},
     ]
-    #  optim = RMSpropTF(
-    #      params_list,
-    #      lr=lr,
-    #      alpha=0.9,
-    #      eps=1e-3,
-    #      weight_decay=wd,
-    #      momentum=momentum
-    #  )
-    optim = torch.optim.SGD(
-        params_list, lr=lr, weight_decay=wd, momentum=momentum, nesterov=nesterov
+    optim = RMSpropTF(
+        params_list,
+        lr=lr,
+        alpha=0.9,
+        eps=1e-3,
+        weight_decay=wd,
+        momentum=momentum
     )
+    #  optim = torch.optim.SGD(
+    #      params_list, lr=lr, weight_decay=wd, momentum=momentum, nesterov=nesterov
+    #  )
     return optim
 
 
 def main():
-    #  n_gpus = torch.cuda.device_count()
-    #  batchsize = 256
-    #  n_epoches = 450
-    #  n_eval_epoch = 1
-    #  lr = 1.6e-2 * (batchsize / 256) * n_gpus
-    #  weight_decay = 1e-5
-    #  opt_wd = 1e-5
-    #  momentum = 0.9
-    #  warmup = 'linear'
-    #  warmup_ratio = 0
-    #  datapth = './imagenet/'
-    #  model_type = 'b0'
-    #  n_classes = 1000
-    #  cropsize = 224
-    #  num_workers = 4
-    #  ema_alpha = 0.9999
-    #  fp16_level = 'O1'
-    #  use_sync_bn = False
-
     n_gpus = torch.cuda.device_count()
     batchsize = 128
-    n_epoches = 100
+    n_epoches = 350
     n_eval_epoch = 1
-    lr = 0.1 * (batchsize / 128) * n_gpus
-    #  lr = 0.1
-    opt_wd = 1e-4
-    nesterov = True
+    lr = 1.6e-2 * (batchsize / 256) * n_gpus
+    weight_decay = 1e-5
+    opt_wd = 1e-5
     momentum = 0.9
     warmup = 'linear'
-    warmup_ratio = 0.1
+    warmup_ratio = 0
     datapth = './imagenet/'
+    model_type = 'b0'
     n_classes = 1000
     cropsize = 224
     num_workers = 4
     ema_alpha = 0.9999
     fp16_level = 'O1'
     use_sync_bn = False
+    nesterov = True
+
+    ## resnet50 params
+    #  n_gpus = torch.cuda.device_count()
+    #  batchsize = 128
+    #  n_epoches = 100
+    #  n_eval_epoch = 1
+    #  lr = 0.1 * (batchsize / 128) * n_gpus
+    #  opt_wd = 1e-4
+    #  nesterov = True
+    #  momentum = 0.9
+    #  warmup = 'linear'
+    #  warmup_ratio = 0.1
+    #  datapth = './imagenet/'
+    #  n_classes = 1000
+    #  cropsize = 224
+    #  num_workers = 4
+    #  ema_alpha = 0.9999
+    #  fp16_level = 'O1'
+    #  use_sync_bn = False
 
     ## dataloader
     dataset_train = ImageNet(datapth, mode='train', cropsize=cropsize)
@@ -174,8 +175,8 @@ def main():
 
 
     ## model
-    #  model = EfficientNet(model_type, n_classes)
-    model = ResNet50()
+    model = EfficientNet(model_type, n_classes)
+    #  model = ResNet50()
 
     #  from models import create_model
     #  model = create_model('efficientnet_b0',
@@ -189,8 +190,8 @@ def main():
     init_model_weights(model)
     model.cuda()
     if use_sync_bn: model = parallel.convert_syncbn_model(model)
-    crit = nn.CrossEntropyLoss()
-    #  crit = LabelSmoothSoftmaxCEV2()
+    #  crit = nn.CrossEntropyLoss()
+    crit = LabelSmoothSoftmaxCEV2()
 
     ## optimizer
     optim = set_optimizer(model, lr, opt_wd, momentum, nesterov=nesterov)
@@ -214,16 +215,16 @@ def main():
     logger = logging.getLogger()
 
     ## scheduler
-    #  scheduler = WarmupExpLrScheduler(
-    #      optim, power=0.97, step_interval=n_iters_per_epoch * 2.4,
-    #      warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
-    #      warmup_ratio=warmup_ratio
-    #  )
-    scheduler = WarmupStepLrScheduler(
-        optim, milestones=[n_iters_per_epoch * el for el in [30, 60, 90]],
-        warmup_iter=n_iters_per_epoch * 0, warmup=warmup,
+    scheduler = WarmupExpLrScheduler(
+        optim, gamma=0.97, interval=n_iters_per_epoch * 2.4,
+        warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
         warmup_ratio=warmup_ratio
     )
+    #  scheduler = WarmupStepLrScheduler(
+    #      optim, milestones=[n_iters_per_epoch * el for el in [30, 60, 90]],
+    #      warmup_iter=n_iters_per_epoch * 0, warmup=warmup,
+    #      warmup_ratio=warmup_ratio
+    #  )
 
     ## train loop
     for e in range(n_epoches):

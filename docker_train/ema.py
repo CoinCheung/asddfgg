@@ -9,6 +9,7 @@ class EMA(object):
         self.step = 0
         self.model = model
         self.ema_model = deepcopy(model)
+        self.ema_model.eval()
         self.alpha = alpha
 
     @torch.no_grad()

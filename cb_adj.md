@@ -144,9 +144,10 @@ merge之后的:
     ema在ddp之后:  不稳定了
     ema不带fp32的: 
     单独model的ema呢: 稳定了
-    看样子不是
+    看样子ema实现是有点问题的
 
 加上lbsmooth:
+77.71/93.72
 
 使用pycls里面的efficientnet和参数: 
 换成自己的mbconv: 

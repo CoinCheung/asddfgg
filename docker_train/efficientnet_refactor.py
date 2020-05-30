@@ -30,18 +30,20 @@ class DropConnect(nn.Module):
         self.drop_ratio = drop_ratio
 
     def forward(self, x):
-        if not self.training: return x
+        if self.drop_ratio == 0 or (not self.training): return x
         batchsize = x.size(0)
-        mask = torch.rand(batchsize).to(x.device)
-        mask[mask<self.drop_ratio] = 0
-        mask[mask>=self.drop_ratio] = 1
-        feat = x * mask.view(-1, 1, 1, 1) / (1. - self.drop_ratio)
+        keep_ratio = 1. - self.drop_ratio
+        with torch.no_grad():
+            mask = torch.empty(batchsize, dtype=x.dtype, device=x.device)
+            mask.bernoulli_(keep_ratio).div_(keep_ratio)
+            mask = mask.detach()
+        feat = x * mask.view(-1, 1, 1, 1)
         return feat
 
 
 class ConvBNAct(nn.Module):
 
-    def __init__(self, in_chan, out_chan, ks=3, stride=1, padding=1):
+    def __init__(self, in_chan, out_chan, ks=3, stride=1, padding=1, groups=1):
         super(ConvBNAct, self).__init__()
         self.conv = nn.Conv2d(
             in_chan,
@@ -49,6 +51,7 @@ class ConvBNAct(nn.Module):
             kernel_size=ks,
             stride=stride,
             padding=padding,
+            groups=groups,
             bias=False)
         self.bn = BatchNorm2d(out_chan, momentum=0.01, eps=1e-3)
 
@@ -59,83 +62,86 @@ class ConvBNAct(nn.Module):
         return feat
 
 
+class SEBlock(nn.Module):
+
+    def __init__(self, in_chan, se_chan):
+        super(SEBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_chan, se_chan, kernel_size=1, bias=True)
+        self.conv2 = nn.Conv2d(se_chan, in_chan, kernel_size=1, bias=True)
+
+    def forward(self, x):
+        atten = torch.mean(x, dim=(2, 3), keepdims=True)
+        atten = self.conv1(atten)
+        atten = act_func(atten)
+        atten = self.conv2(atten)
+        atten = torch.sigmoid(atten)
+        return atten * x
+
+
 class MBConv(nn.Module):
 
-    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1, se_ratio=0.25, skip=False, drop_connect_ratio=0.2):
+    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1, se_ratio=0.25, skip=True, drop_connect_ratio=0.2):
         super(MBConv, self).__init__()
         assert ks in (3, 5, 7)
-        self.expand = False
-        expand_chan = in_chan
-        if expand_ratio != 1:
-            self.expand = True
-            expand_chan = int(in_chan * expand_ratio)
-            self.expand_conv = nn.Conv2d(
-                in_chan,
-                expand_chan,
-                kernel_size=1,
-                stride=1,
-                bias=False,
-            )
-            self.expand_bn = BatchNorm2d(
-                expand_chan, momentum=0.01, eps=1e-3
-            )
-        n_pad = (ks - 1) // 2
-        self.dw_conv = nn.Conv2d(
-            expand_chan,
-            expand_chan,
-            kernel_size=ks,
-            padding=n_pad,
-            groups=expand_chan,
-            stride=stride,
-            bias=False
-        )
-        self.dw_bn = BatchNorm2d(expand_chan, momentum=0.01, eps=1e-3)
-        self.use_se = False
-        if se_ratio != 0:
-            self.use_se = True
-            se_chan = max(1, int(se_ratio*in_chan))
-            self.se_conv1 = nn.Conv2d(expand_chan, se_chan, kernel_size=1)
-            self.se_conv2 = nn.Conv2d(se_chan, expand_chan, kernel_size=1)
 
-        self.proj_conv = nn.Conv2d(
-            expand_chan,
-            out_chan,
-            kernel_size=1,
-            bias=False
+        # expand conv
+        self.exp_conv = None
+        exp_chan = int(in_chan * expand_ratio)
+        if exp_chan != in_chan:
+            self.exp_conv = ConvBNAct(in_chan, exp_chan, 1, 1, 0)
+        # depthwise conv
+        n_pad = (ks - 1) // 2
+        self.dw_conv = ConvBNAct(exp_chan, exp_chan, ks, stride, n_pad, groups=exp_chan)
+        # se-attention
+        self.se_block = None
+        if se_ratio != 0:
+            se_chan = max(1, int(se_ratio * in_chan))
+            self.se_block = SEBlock(exp_chan, se_chan)
+        # project conv
+        self.proj_conv = nn.Sequential(
+            nn.Conv2d(exp_chan, out_chan, kernel_size=1, bias=False),
+            BatchNorm2d(out_chan, momentum=0.01, eps=1e-3)
         )
-        self.proj_bn = BatchNorm2d(out_chan, momentum=0.01, eps=1e-3)
+        ## TODO: last_bn
         self.skip = skip and (in_chan == out_chan) and (stride == 1)
         self.drop_connect = DropConnect(drop_connect_ratio)
 
     def forward(self, x):
         feat = x
-        if self.expand:
-            feat = self.expand_conv(feat)
-            feat = self.expand_bn(feat)
-            feat = act_func(feat)
+        if not self.exp_conv is None:
+            feat = self.exp_conv(feat)
         feat = self.dw_conv(feat)
-        feat = self.dw_bn(feat)
-        feat = act_func(feat)
-        if self.use_se:
-            atten = torch.mean(feat, dim=(2, 3)).unsqueeze(-1).unsqueeze(-1)
-            atten = self.se_conv1(atten)
-            atten = act_func(atten)
-            atten = self.se_conv2(atten)
-            atten = torch.sigmoid(atten)
-            feat = feat * atten
+        if not self.se_block is None:
+            feat = self.se_block(feat)
         feat = self.proj_conv(feat)
-        feat = self.proj_bn(feat)
-        feat = act_func(feat) ## todo: try remove this
+
         if self.skip:
             feat = self.drop_connect(feat)
             feat = feat + x
         return feat
 
 
+class EfficientNetStage(nn.Module):
+
+    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1, se_ratio=0.25, n_blocks=1):
+        super(EfficientNetStage, self).__init__()
+        layers = []
+        for i in range(n_blocks):
+            b_stride = stride if i == 0 else 1
+            b_in_chan = in_chan if i == 0 else out_chan
+            layers.append(MBConv(b_in_chan, out_chan, ks, stride=b_stride,
+                expand_ratio=expand_ratio, se_ratio=se_ratio)
+            )
+        self.layers = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.layers(x)
+
+
+
 class EfficientNetBackbone(nn.Module):
 
     def __init__(self, r_width=1., r_depth=1.):
-
         super(EfficientNetBackbone, self).__init__()
 
         layers, self.n_chans = [], []
