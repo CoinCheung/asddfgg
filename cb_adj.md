@@ -1,3 +1,4 @@
+目标77.3(with autoaugment), 76.8(no autoaugment)
 
 baseline: 
 69.02/89.11
@@ -137,17 +138,20 @@ resnet50:
         prob=0.5: 77.72/93.85
         prob=1: 77.37/93.66
         prob=0.1:
-merge之后的:
 
-加上ema: 
-    ema在model之后: 不稳定了
-    ema在ddp之后:  不稳定了
-    ema不带fp32的: 
-    单独model的ema呢: 稳定了
-    看样子ema实现是有点问题的
+    加上ema: 
+        ema在model之后: 不稳定了
+        ema在ddp之后:  不稳定了
+        ema不带fp32的: 
+        单独model的ema呢: 稳定了
+        看样子ema实现是有点问题的
 
-加上lbsmooth:
-77.71/93.72
+    加上lbsmooth:
+    77.71/93.72
+
+
+efficientnet: 
+    baseline: 75.98/92.83/76.93/93.26
 
 使用pycls里面的efficientnet和参数: 
 换成自己的mbconv: 
