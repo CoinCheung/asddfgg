@@ -379,7 +379,7 @@ class RandomAugment(object):
     def __init__(self, N, M):
         self.N = N
         self.M = M
-        self.ops = [RandomOp(name, 1) for name in OP_NAMES]
+        self.ops = [RandomOp(name, prob=0.5) for name in OP_NAMES]
 
     def __call__(self, img):
         ops = np.random.choice(self.ops, self.N)

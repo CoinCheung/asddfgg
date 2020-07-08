@@ -152,9 +152,30 @@ resnet50:
 
 efficientnet: 
     baseline: 75.98/92.83/76.93/93.26
+    去掉randaug: 75.70/92.70/76.89/93.29
+    refactor之后的: 75.59/92.65/76.76/93.20
+    refactor之后的, ra=2,10: 75.63/92.54/76.83/93.17
+    refactor之后的, ra=2,9, p=0.1: 75.93/92.87/77.00/93.51
+    refactor之后的, ra=2,9, p=0.5: 76.02/92.78/77.25/93.44 -- 不知道是啥
+    refactor之后的, ra=2,9, p=0.5: 76.27/92.99/77.18/93.47
+    refactor之后的, ra=2,9, p=1: 75.96/92.76/76.99/93.29
+    结论，还是设成p=0.5吧, 
+b1:
 
-使用pycls里面的efficientnet和参数: 
-换成自己的mbconv: 
+看一下三个版本的label smooth的速度
+
+eff加上last-bn: 
+eff换成cuda版本的swish: 
+eff换成relu试试: 
+
+然后试一下logit regularization: 
+
+再试一下resnet50的大batch
+
+试一下loss的boostrap:
+
+使用effnet里面的参数和optimizer看能不能到差不多的: 
+
 
 再试试官方的ema
 慢慢调自己的模型, 看能不能跟官方实现效果一样: 

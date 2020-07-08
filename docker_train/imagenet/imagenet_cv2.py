@@ -45,7 +45,6 @@ class ImageNet(Dataset):
             T.ToTensor(),
             T.PCANoise(0.1),
             T.Normalize(img_mean, img_std)
-            #  rand_augment_transform('rand-m9-mstd0.5', {'translate_const': 100, 'img_mean': randaug_mean,}),
             #  T.ColorJitter(0.4, 0.4, 0.4),
         ])
         self.trans_val = T.Compose([

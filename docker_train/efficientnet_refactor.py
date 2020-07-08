@@ -123,14 +123,15 @@ class MBConv(nn.Module):
 
 class EfficientNetStage(nn.Module):
 
-    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1, se_ratio=0.25, n_blocks=1):
+    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1, se_ratio=0.25, n_blocks=1, dc_ratios=[0, ]):
         super(EfficientNetStage, self).__init__()
         layers = []
         for i in range(n_blocks):
             b_stride = stride if i == 0 else 1
             b_in_chan = in_chan if i == 0 else out_chan
             layers.append(MBConv(b_in_chan, out_chan, ks, stride=b_stride,
-                expand_ratio=expand_ratio, se_ratio=se_ratio)
+                expand_ratio=expand_ratio, se_ratio=se_ratio,
+                drop_connect_ratio=dc_ratios[i])
             )
         self.layers = nn.Sequential(*layers)
 
@@ -138,49 +139,27 @@ class EfficientNetStage(nn.Module):
         return self.layers(x)
 
 
-
 class EfficientNetBackbone(nn.Module):
 
     def __init__(self, r_width=1., r_depth=1.):
         super(EfficientNetBackbone, self).__init__()
 
-        layers, self.n_chans = [], []
         out_chan_stem = round_channels(32, r_width)
-        self.n_chans.append(out_chan_stem)
+        self.conv_stem = ConvBNAct(3, out_chan_stem, ks=3, padding=1, stride=2,)
 
         model_params = self.get_model_params(r_width, r_depth)
-        for i in range(7):
-            params = [el[i] for el in model_params]
-            n_chan, blocks = 0, []
-            for i_chan, o_chan, ks, stride, expand, drop_connect_ratio in zip(*params):
-                blocks.append(MBConv(
-                    i_chan,
-                    o_chan,
-                    ks,
-                    stride=stride,
-                    expand_ratio=expand,
-                    drop_connect_ratio=drop_connect_ratio,
-                    se_ratio=0.25,
-                    skip=True,)
-                )
-                n_chan = o_chan
-            layers.append(blocks)
-            self.n_chans.append(n_chan)
-        out_chan_head = round_channels(self.n_chans[-1] * 4, r_width)
-        self.n_chans.append(out_chan_head)
-
-        self.conv_stem = ConvBNAct(3, out_chan_stem, ks=3, padding=1, stride=2,)
-        self.layer1 = nn.Sequential(*layers[0])
-        self.layer2 = nn.Sequential(*layers[1])
-        self.layer3 = nn.Sequential(*layers[2])
-        self.layer4 = nn.Sequential(*layers[3])
-        self.layer5 = nn.Sequential(*layers[4])
-        self.layer6 = nn.Sequential(*layers[5])
-        self.layer7 = nn.Sequential(*layers[6])
-        self.conv_out = ConvBNAct(n_chan, out_chan_head, ks=1, stride=1, padding=0)
+        for i, param in enumerate(zip(*model_params)):
+            i_chan, o_chan, ks, strd, exp, n_b, dp_ratio = param
+            self.add_module('layer{}'.format(i+1),
+                EfficientNetStage(i_chan, o_chan, ks, strd,
+                expand_ratio=exp, n_blocks=n_b, dc_ratios=dp_ratio)
+            )
+        self.out_chan_head = round_channels(o_chan * 4, r_width)
+        self.conv_out = ConvBNAct(o_chan, self.out_chan_head, ks=1, stride=1, padding=0)
 
 
     def get_model_params(self, r_width=1., r_depth=1.):
+        # b0 config
         i_chans = [32, 16, 24, 40, 80, 112, 192]
         o_chans = [16, 24, 40, 80, 112, 192, 320]
         n_blocks = [1, 2, 2, 3, 3, 4, 1]
@@ -188,47 +167,21 @@ class EfficientNetBackbone(nn.Module):
         strides = [1, 2, 2, 2, 1, 2, 1]
         expands = [1, 6, 6, 6, 6, 6, 6]
 
-        dec_i_chans = []
-        dec_o_chans = []
-        dec_kernel_sizes = []
-        dec_strides = []
-        dec_expands = []
-        n_counts = []
-        for i in range(7):
-            count = 1
-            dec_i_chans.append([])
-            dec_o_chans.append([])
-            dec_kernel_sizes.append([])
-            dec_strides.append([])
-            dec_expands.append([])
-            in_chan = round_channels(i_chans[i], r_width)
-            out_chan = round_channels(o_chans[i], r_width)
-            repeats = int(math.ceil(r_depth * n_blocks[i]))
-            dec_i_chans[i].append(in_chan)
-            dec_o_chans[i].append(out_chan)
-            dec_kernel_sizes[i].append(kernel_sizes[i])
-            dec_strides[i].append(strides[i])
-            dec_expands[i].append(expands[i])
-            for _ in range(repeats-1):
-                count += 1
-                dec_i_chans[i].append(out_chan)
-                dec_o_chans[i].append(out_chan)
-                dec_kernel_sizes[i].append(kernel_sizes[i])
-                dec_strides[i].append(1)
-                dec_expands[i].append(expands[i])
-            n_counts.append(count)
-        all_counts = sum(n_counts)
-        all_drop_connect_ratios = [
-            0.2 * float(idx) / all_counts for idx in range(all_counts)
-        ]
-        dec_drop_connect_ratios = []
-        for idx, n in enumerate(n_counts):
-            dec_drop_connect_ratios.append([])
-            for i in range(n):
-                ratio = all_drop_connect_ratios.pop(0)
-                dec_drop_connect_ratios[idx].append(ratio)
-        return (dec_i_chans, dec_o_chans, dec_kernel_sizes, dec_strides,
-                dec_expands, dec_drop_connect_ratios)
+        # expand
+        i_chans = [round_channels(el, r_width) for el in i_chans]
+        o_chans = [round_channels(el, r_width) for el in o_chans]
+        n_blocks = [int(math.ceil(r_depth * el)) for el in n_blocks]
+
+        # drop path ratios
+        cum_n_blocks, n_all_blocks, dp_ratio = 0, sum(n_blocks), []
+        for n_b in n_blocks:
+            dp_ratio.append([
+                0.2 * float(idx) / n_all_blocks
+                for idx in range(cum_n_blocks, cum_n_blocks + n_b)
+            ])
+            cum_n_blocks += n_b
+        return i_chans, o_chans, kernel_sizes, strides, expands, n_blocks, dp_ratio
+
 
     def forward(self, x):
         feat0 = self.conv_stem(x)
@@ -242,6 +195,110 @@ class EfficientNetBackbone(nn.Module):
         feat8 = self.conv_out(feat7) # feat32
         return feat0, feat1, feat2, feat3, feat4, feat5, feat6, feat7, feat8
 
+#
+#  class EfficientNetBackbone(nn.Module):
+#
+#      def __init__(self, r_width=1., r_depth=1.):
+#          super(EfficientNetBackbone, self).__init__()
+#
+#          layers, self.n_chans = [], []
+#          out_chan_stem = round_channels(32, r_width)
+#          self.n_chans.append(out_chan_stem)
+#
+#          model_params = self.get_model_params(r_width, r_depth)
+#          for i in range(7):
+#              params = [el[i] for el in model_params]
+#              n_chan, blocks = 0, []
+#              for i_chan, o_chan, ks, stride, expand, drop_connect_ratio in zip(*params):
+#                  blocks.append(MBConv(
+#                      i_chan,
+#                      o_chan,
+#                      ks,
+#                      stride=stride,
+#                      expand_ratio=expand,
+#                      drop_connect_ratio=drop_connect_ratio,
+#                      se_ratio=0.25,
+#                      skip=True,)
+#                  )
+#                  n_chan = o_chan
+#              layers.append(blocks)
+#              self.n_chans.append(n_chan)
+#          out_chan_head = round_channels(self.n_chans[-1] * 4, r_width)
+#          self.n_chans.append(out_chan_head)
+#
+#          self.conv_stem = ConvBNAct(3, out_chan_stem, ks=3, padding=1, stride=2,)
+#          self.layer1 = nn.Sequential(*layers[0])
+#          self.layer2 = nn.Sequential(*layers[1])
+#          self.layer3 = nn.Sequential(*layers[2])
+#          self.layer4 = nn.Sequential(*layers[3])
+#          self.layer5 = nn.Sequential(*layers[4])
+#          self.layer6 = nn.Sequential(*layers[5])
+#          self.layer7 = nn.Sequential(*layers[6])
+#          self.conv_out = ConvBNAct(n_chan, out_chan_head, ks=1, stride=1, padding=0)
+#
+#
+#      def get_model_params(self, r_width=1., r_depth=1.):
+#          i_chans = [32, 16, 24, 40, 80, 112, 192]
+#          o_chans = [16, 24, 40, 80, 112, 192, 320]
+#          n_blocks = [1, 2, 2, 3, 3, 4, 1]
+#          kernel_sizes = [3, 3, 5, 3, 5, 5, 3]
+#          strides = [1, 2, 2, 2, 1, 2, 1]
+#          expands = [1, 6, 6, 6, 6, 6, 6]
+#
+#          dec_i_chans = []
+#          dec_o_chans = []
+#          dec_kernel_sizes = []
+#          dec_strides = []
+#          dec_expands = []
+#          n_counts = []
+#          for i in range(7):
+#              count = 1
+#              dec_i_chans.append([])
+#              dec_o_chans.append([])
+#              dec_kernel_sizes.append([])
+#              dec_strides.append([])
+#              dec_expands.append([])
+#              in_chan = round_channels(i_chans[i], r_width)
+#              out_chan = round_channels(o_chans[i], r_width)
+#              repeats = int(math.ceil(r_depth * n_blocks[i]))
+#              dec_i_chans[i].append(in_chan)
+#              dec_o_chans[i].append(out_chan)
+#              dec_kernel_sizes[i].append(kernel_sizes[i])
+#              dec_strides[i].append(strides[i])
+#              dec_expands[i].append(expands[i])
+#              for _ in range(repeats-1):
+#                  count += 1
+#                  dec_i_chans[i].append(out_chan)
+#                  dec_o_chans[i].append(out_chan)
+#                  dec_kernel_sizes[i].append(kernel_sizes[i])
+#                  dec_strides[i].append(1)
+#                  dec_expands[i].append(expands[i])
+#              n_counts.append(count)
+#          all_counts = sum(n_counts)
+#          all_drop_connect_ratios = [
+#              0.2 * float(idx) / all_counts for idx in range(all_counts)
+#          ]
+#          dec_drop_connect_ratios = []
+#          for idx, n in enumerate(n_counts):
+#              dec_drop_connect_ratios.append([])
+#              for i in range(n):
+#                  ratio = all_drop_connect_ratios.pop(0)
+#                  dec_drop_connect_ratios[idx].append(ratio)
+#          return (dec_i_chans, dec_o_chans, dec_kernel_sizes, dec_strides,
+#                  dec_expands, dec_drop_connect_ratios)
+#
+#      def forward(self, x):
+#          feat0 = self.conv_stem(x)
+#          feat1 = self.layer1(feat0)
+#          feat2 = self.layer2(feat1) # feat4
+#          feat3 = self.layer3(feat2) # feat8
+#          feat4 = self.layer4(feat3)
+#          feat5 = self.layer5(feat4) # feat16
+#          feat6 = self.layer6(feat5)
+#          feat7 = self.layer7(feat6)
+#          feat8 = self.conv_out(feat7) # feat32
+#          return feat0, feat1, feat2, feat3, feat4, feat5, feat6, feat7, feat8
+#
 
 class EfficientNet(nn.Module):
     params_dict = {
@@ -261,9 +318,9 @@ class EfficientNet(nn.Module):
         assert model_type in self.params_dict
         r_width, r_depth, _, r_dropout = self.params_dict[model_type]
         self.backbone = EfficientNetBackbone(r_width, r_depth)
-        n_chans = self.backbone.n_chans
+        n_chans = self.backbone.out_chan_head
         self.dropout = nn.Dropout(r_dropout) if r_dropout > 0.0 else None
-        self.fc = nn.Linear(n_chans[-1], n_classes, bias=True)
+        self.fc = nn.Linear(n_chans, n_classes, bias=True)
 
     def forward(self, x):
         feat = self.backbone(x)[-1]
