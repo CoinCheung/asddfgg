@@ -27,6 +27,8 @@ from label_smooth import LabelSmoothSoftmaxCEV2
 from rmsprop_tf import RMSpropTF
 from lr_scheduler import WarmupExpLrScheduler, WarmupStepLrScheduler
 
+from config.resnet50 import *
+
 
 ### bs=32, lr0, 8/23
 ### bs=128, lr0 x 4, 单卡, 6/19
@@ -111,65 +113,6 @@ def set_optimizer(model, lr, wd, momentum, nesterov):
 
 
 def main():
-    n_gpus = torch.cuda.device_count()
-    batchsize = 128
-    n_epoches = 350
-    n_eval_epoch = 1
-    lr = 1.6e-2 * (batchsize / 256) * n_gpus
-    weight_decay = 1e-5
-    opt_wd = 1e-5
-    momentum = 0.9
-    warmup = 'linear'
-    warmup_ratio = 0
-    datapth = './imagenet/'
-    model_type = 'b1'
-    n_classes = 1000
-    cropsize = 240
-    num_workers = 4
-    ema_alpha = 0.9999
-    fp16_level = 'O1'
-    use_sync_bn = False
-    nesterov = True
-
-    ## effnet b0
-    #  n_gpus = torch.cuda.device_count()
-    #  batchsize = 128
-    #  n_epoches = 350
-    #  n_eval_epoch = 1
-    #  lr = 1.6e-2 * (batchsize / 256) * n_gpus
-    #  weight_decay = 1e-5
-    #  opt_wd = 1e-5
-    #  momentum = 0.9
-    #  warmup = 'linear'
-    #  warmup_ratio = 0
-    #  datapth = './imagenet/'
-    #  model_type = 'b0'
-    #  n_classes = 1000
-    #  cropsize = 224
-    #  num_workers = 4
-    #  ema_alpha = 0.9999
-    #  fp16_level = 'O1'
-    #  use_sync_bn = False
-    #  nesterov = True
-
-    ## resnet50 params
-    #  n_gpus = torch.cuda.device_count()
-    #  batchsize = 128
-    #  n_epoches = 100
-    #  n_eval_epoch = 1
-    #  lr = 0.1 * (batchsize / 128) * n_gpus
-    #  opt_wd = 1e-4
-    #  nesterov = True
-    #  momentum = 0.9
-    #  warmup = 'linear'
-    #  warmup_ratio = 0.1
-    #  datapth = './imagenet/'
-    #  n_classes = 1000
-    #  cropsize = 224
-    #  num_workers = 4
-    #  ema_alpha = 0.9999
-    #  fp16_level = 'O1'
-    #  use_sync_bn = False
 
     ## dataloader
     dataset_train = ImageNet(datapth, mode='train', cropsize=cropsize)
