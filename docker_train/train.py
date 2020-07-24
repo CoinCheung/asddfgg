@@ -19,15 +19,17 @@ from efficientnet_refactor import EfficientNet
 from resnet import ResNet50
 from imagenet.imagenet_cv2 import ImageNet
 #  from imagenet.imagenet import ImageNet
-from eval import evaluate
+from eval import eval_model
 from meters import TimeMeter, AvgMeter
 from logger import setup_logger
-from ema import EMA
-from label_smooth import LabelSmoothSoftmaxCEV2
+from ops import EMA, MixUper, OnehotEncoder
+from label_smooth import LabelSmoothSoftmaxCEV3
 from rmsprop_tf import RMSpropTF
 from lr_scheduler import WarmupExpLrScheduler, WarmupStepLrScheduler
 
-from config.resnet50 import *
+#  from config.resnet50 import *
+#  from config.effnetb0 import *
+from config.effnetb1 import *
 
 
 ### bs=32, lr0, 8/23
@@ -113,6 +115,7 @@ def set_optimizer(model, lr, wd, momentum, nesterov):
 
 
 def main():
+    global n_eval_epoch
 
     ## dataloader
     dataset_train = ImageNet(datapth, mode='train', cropsize=cropsize)
@@ -155,7 +158,7 @@ def main():
     model.cuda()
     if use_sync_bn: model = parallel.convert_syncbn_model(model)
     #  crit = nn.CrossEntropyLoss()
-    crit = LabelSmoothSoftmaxCEV2()
+    crit = LabelSmoothSoftmaxCEV3(0.1)
 
     ## optimizer
     optim = set_optimizer(model, lr, opt_wd, momentum, nesterov=nesterov)
@@ -226,6 +229,16 @@ def main():
         torch.save(ema.ema_model.state_dict(), './res/model_final_ema.pth')
 
 
+def evaluate(ema, dl_eval):
+    model = ema.ema_model
+    acc_1_ema, acc_5_ema = eval_model(model, dl_eval)
+    model = ema.model
+    acc_1, acc_5 = eval_model(model, dl_eval)
+    torch.cuda.empty_cache()
+    return acc_1, acc_5, acc_1_ema, acc_5_ema
+
+
+
 def parse_args():
     parse = argparse.ArgumentParser()
     parse.add_argument('--local_rank',
@@ -248,6 +261,6 @@ def init_dist(args):
 if __name__ == '__main__':
     args = parse_args()
     init_dist(args)
-    setup_logger('./res/')
+    setup_logger('efficientnet-' + model_type, './res/')
     main()
     dist.barrier()

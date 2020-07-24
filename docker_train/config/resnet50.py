@@ -1,5 +1,5 @@
 
-n_gpus = torch.cuda.device_count()
+n_gpus = 8
 batchsize = 128
 n_epoches = 100
 n_eval_epoch = 1

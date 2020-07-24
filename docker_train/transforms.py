@@ -180,12 +180,12 @@ class ResizeCenterCrop(object):
 
     def __init__(self, crop_size=224, short_size=256, interpolation=cv2.INTER_CUBIC):
         self.interpolation = interpolation
-        self.short_size = short_size
         if isinstance(crop_size, int):
             self.crop_size = [crop_size for _ in range(2)]
         else:
             assert len(crop_size) == 2
             self.crop_size = crop_size
+        self.short_size = short_size
 
     def __call__(self, im):
         im = resize(im, self.short_size, interpolation=self.interpolation)

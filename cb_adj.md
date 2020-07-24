@@ -1,4 +1,6 @@
-目标77.3(with autoaugment), 76.8(no autoaugment)
+目标
+b0: 77.3(with autoaugment), 76.8(no autoaugment)
+b1: 78.8/94.4
 
 baseline: 
 69.02/89.11
@@ -161,12 +163,19 @@ efficientnet:
     refactor之后的, ra=2,9, p=1: 75.96/92.76/76.99/93.29
     结论，还是设成p=0.5吧, 
 b1:
+    ra=2,9, p=0.5: 77.26/93.42/78.1/93.79
+    去掉ra: 76.79/92.93/77.53/93.45
+    修正eval, ra=2,9, p=0.5: 78.21/94.09/79.27/94.53
+
+b1使用cuda版的swish: 
 
 看一下三个版本的label smooth的速度
 
 eff加上last-bn: 
-eff换成cuda版本的swish: 
 eff换成relu试试: 
+
+    dropconnect长到0.3: 
+    固定dropconnect=0.3:
 
 然后试一下logit regularization: 
 

@@ -10,7 +10,7 @@ import logging
 import torch.distributed as dist
 
 
-def setup_logger(logpth):
+def setup_logger(model_type, logpth):
     if dist.is_initialized() and dist.get_rank() != 0:
         log_level = logging.WARNING
         return

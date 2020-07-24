@@ -2,26 +2,20 @@ import os.path as osp
 import argparse
 import numpy as np
 
+from efficientnet_refactor import EfficientNet
 from resnet import ResNet50
 import torch
 import torch.distributed as dist
 from torch.utils.data import Dataset, DataLoader
 from imagenet.imagenet_cv2 import ImageNet
 
+from config.effnetb1 import *
 
 
-#  def evaluate(model, dl_eval):
-#      acc_1, acc_5 = eval_model(model, dl_eval)
-#      torch.cuda.empty_cache()
-#      return acc_1, acc_5
-
-def evaluate(ema, dl_eval):
-    model = ema.ema_model
-    acc_1_ema, acc_5_ema = eval_model(model, dl_eval)
-    model = ema.model
+def evaluate(model, dl_eval):
     acc_1, acc_5 = eval_model(model, dl_eval)
     torch.cuda.empty_cache()
-    return acc_1, acc_5, acc_1_ema, acc_5_ema
+    return acc_1, acc_5
 
 
 @torch.no_grad()
@@ -54,7 +48,8 @@ def eval_model(model, dl_eval):
 
 
 def main():
-    model = ResNet50()
+    #  model = ResNet50()
+    model = EfficientNet(model_type, n_classes)
     sd = torch.load('./res/model_final.pth', map_location='cpu')
     new_sd = {}
     for k, v in sd.items():
@@ -65,7 +60,7 @@ def main():
     model.cuda()
 
     batchsize = 256
-    ds = ImageNet('./imagenet', 'val')
+    ds = ImageNet(datapth, mode='val', cropsize=cropsize)
     if dist.is_initialized():
         sampler_val = torch.utils.data.distributed.DistributedSampler(
             ds, shuffle=False)
@@ -82,20 +77,6 @@ def main():
             num_workers=8, pin_memory=True, drop_last=False
         )
 
-    #  import torchvision.datasets as datasets
-    #  import torchvision.transforms as transforms
-    #  normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
-    #                                   std=[0.229, 0.224, 0.225])
-    #  valdir = osp.join('/data1/zzy/datasets/imagenet', 'val_cls')
-    #  dl = torch.utils.data.DataLoader(
-    #      datasets.ImageFolder(valdir, transforms.Compose([
-    #          transforms.Resize(256),
-    #          transforms.CenterCrop(224),
-    #          transforms.ToTensor(),
-    #          normalize,
-    #      ])),
-    #      batch_size=256, shuffle=False,
-    #      num_workers=8, pin_memory=True)
     acc1, acc5 = evaluate(model, dl)
 
     if not (dist.is_initialized() and dist.get_rank() != 0):

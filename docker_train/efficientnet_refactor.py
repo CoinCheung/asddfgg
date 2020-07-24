@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from swish import SwishV3 as Activation
+
 ## TODO :use swish rather than relu
 
 
@@ -18,9 +20,9 @@ def round_channels(n_chan, multiplier):
     return new_chan
 
 
-def act_func(x):
-    return x * torch.sigmoid(x)
-    #  return F.relu(x, inplace=True)
+#  def act_func(x):
+#      return x * torch.sigmoid(x)
+#      #  return F.relu(x, inplace=True)
 
 
 class DropConnect(nn.Module):
@@ -54,11 +56,12 @@ class ConvBNAct(nn.Module):
             groups=groups,
             bias=False)
         self.bn = BatchNorm2d(out_chan, momentum=0.01, eps=1e-3)
+        self.act = Activation()
 
     def forward(self, x):
         feat = self.conv(x)
         feat = self.bn(feat)
-        feat = act_func(feat)
+        feat = self.act(feat)
         return feat
 
 
@@ -68,11 +71,12 @@ class SEBlock(nn.Module):
         super(SEBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_chan, se_chan, kernel_size=1, bias=True)
         self.conv2 = nn.Conv2d(se_chan, in_chan, kernel_size=1, bias=True)
+        self.act = Activation()
 
     def forward(self, x):
         atten = torch.mean(x, dim=(2, 3), keepdims=True)
         atten = self.conv1(atten)
-        atten = act_func(atten)
+        atten = self.act(atten)
         atten = self.conv2(atten)
         atten = torch.sigmoid(atten)
         return atten * x

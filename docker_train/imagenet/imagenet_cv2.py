@@ -36,7 +36,6 @@ class ImageNet(Dataset):
                 pth, lb = line.split(' ')
                 pth, lb = osp.join(img_root_pth, pth), int(lb)
                 self.samples.append((pth, lb))
-        randaug_mean = tuple([min(255, int(x * 255)) for x in (0.485, 0.456, 0.406)])
         img_mean, img_std = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
         self.trans_train = T.Compose([
             T.RandomResizedCrop(cropsize),
@@ -47,8 +46,9 @@ class ImageNet(Dataset):
             T.Normalize(img_mean, img_std)
             #  T.ColorJitter(0.4, 0.4, 0.4),
         ])
+        short_size = int(cropsize * 256 / 224)
         self.trans_val = T.Compose([
-            T.ResizeCenterCrop(crop_size=224, short_size=256),
+            T.ResizeCenterCrop(crop_size=cropsize, short_size=short_size),
             #  T.ResizeCenterCrop((cropsize, cropsize)),
             #  T.Resize(256),
             #  T.CenterCrop(224),
