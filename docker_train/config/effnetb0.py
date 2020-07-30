@@ -10,11 +10,13 @@ momentum = 0.9
 warmup = 'linear'
 warmup_ratio = 0
 datapth = './imagenet/'
-model_type = 'b0'
-n_classes = 1000
+model_args = dict(model_type='effcientnet-b0', n_classes=1000)
 cropsize = 224
 num_workers = 4
 ema_alpha = 0.9999
 fp16_level = 'O1'
 use_sync_bn = False
 nesterov = True
+mixup = 'mixup'
+mixup_alpha = 0.2
+lb_smooth = 0.1

@@ -1,7 +1,12 @@
-from .efficientnet import *
 
-from .registry import *
-from .factory import create_model
-from .helpers import load_checkpoint, resume_checkpoint
-from .test_time_pool import TestTimePoolHead, apply_test_time_pool
-from .split_batchnorm import convert_splitbn_model
+from .efficientnet_refactor import EfficientNet
+from .resnet import ResNet50
+
+
+def build_model(model_type, n_classes):
+    if model_type.startswith('effcientnet'):
+        mtype = model_type.split('-')[1]
+        model = EfficientNet(mtype, n_classes)
+    elif model_type == 'resnet-50':
+        model = ResNet50(n_classes)
+    return model

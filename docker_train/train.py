@@ -15,8 +15,9 @@ from torch.utils.data import Dataset, DataLoader
 import torch.distributed as dist
 from apex import amp, parallel
 
-from efficientnet_refactor import EfficientNet
-from resnet import ResNet50
+#  from efficientnet_refactor import EfficientNet
+#  from resnet import ResNet50
+from models import build_model
 from imagenet.imagenet_cv2 import ImageNet
 #  from imagenet.imagenet import ImageNet
 from eval import eval_model
@@ -26,10 +27,15 @@ from ops import EMA, MixUper, OnehotEncoder
 from label_smooth import LabelSmoothSoftmaxCEV3
 from rmsprop_tf import RMSpropTF
 from lr_scheduler import WarmupExpLrScheduler, WarmupStepLrScheduler
+from cross_entropy import (
+        SoftmaxCrossEntropyV2,
+        SoftmaxCrossEntropyV1
+    )
 
-#  from config.resnet50 import *
+
+from config.resnet50 import *
 #  from config.effnetb0 import *
-from config.effnetb1 import *
+#  from config.effnetb1 import *
 
 
 ### bs=32, lr0, 8/23
@@ -100,17 +106,17 @@ def set_optimizer(model, lr, wd, momentum, nesterov):
         {'params': wd_params},
         {'params': non_wd_params, 'weight_decay': 0},
     ]
-    optim = RMSpropTF(
-        params_list,
-        lr=lr,
-        alpha=0.9,
-        eps=1e-3,
-        weight_decay=wd,
-        momentum=momentum
-    )
-    #  optim = torch.optim.SGD(
-    #      params_list, lr=lr, weight_decay=wd, momentum=momentum, nesterov=nesterov
+    #  optim = RMSpropTF(
+    #      params_list,
+    #      lr=lr,
+    #      alpha=0.9,
+    #      eps=1e-3,
+    #      weight_decay=wd,
+    #      momentum=momentum
     #  )
+    optim = torch.optim.SGD(
+        params_list, lr=lr, weight_decay=wd, momentum=momentum, nesterov=nesterov
+    )
     return optim
 
 
@@ -142,14 +148,9 @@ def main():
 
 
     ## model
-    model = EfficientNet(model_type, n_classes)
-    #  model = ResNet50()
+    #  model = EfficientNet(model_type, n_classes)
+    model = build_model(**model_args)
 
-    #  from models import create_model
-    #  model = create_model('efficientnet_b0',
-    #          drop_connect_rate=0.2,
-    #          global_pool='avg',
-    #          drop_rate=0.2)
 
     ## sync bn
     #  if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
@@ -158,7 +159,8 @@ def main():
     model.cuda()
     if use_sync_bn: model = parallel.convert_syncbn_model(model)
     #  crit = nn.CrossEntropyLoss()
-    crit = LabelSmoothSoftmaxCEV3(0.1)
+    #  crit = LabelSmoothSoftmaxCEV3(lb_smooth)
+    crit = SoftmaxCrossEntropyV2()
 
     ## optimizer
     optim = set_optimizer(model, lr, opt_wd, momentum, nesterov=nesterov)
@@ -193,12 +195,18 @@ def main():
     #      warmup_ratio=warmup_ratio
     #  )
 
+    # for mixup
+    label_encoder = OnehotEncoder(n_classes=model_args['n_classes'], lb_smooth=lb_smooth)
+    mixuper = MixUper(mixup_alpha, mixup=mixup)
+
     ## train loop
     for e in range(n_epoches):
         sampler_train.set_epoch(e)
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
             im, lb= im.cuda(), lb.cuda()
+            lb = label_encoder(lb)
+            #  im, lb = mixuper(im, lb)
             optim.zero_grad()
             logits = model(im)
             loss = crit(logits, lb) #+ cal_l2_loss(model, weight_decay)
@@ -261,6 +269,6 @@ def init_dist(args):
 if __name__ == '__main__':
     args = parse_args()
     init_dist(args)
-    setup_logger('efficientnet-' + model_type, './res/')
+    setup_logger(model_args['model_type'], './res/')
     main()
     dist.barrier()

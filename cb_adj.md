@@ -167,9 +167,28 @@ b1:
     去掉ra: 76.79/92.93/77.53/93.45
     修正eval, ra=2,9, p=0.5: 78.21/94.09/79.27/94.53
 
-b1使用cuda版的swish: 
+b1使用cuda版的swish: 78.17/94.14/78.99/94.51 -- 差不太多，有点跳
 
 看一下三个版本的label smooth的速度
+effnet-b1: 
+    v1: 142s
+    v2: 153s
+    v3: 136s
+
+看修正pca_noise之后是否变快了: 
+修改后: 131s
+修改前: 139s 
+
+effnet-b1: mixup+lbsmooth(0.1):
+    alpha=0.2: 76.09/93.03/77.10/93.54
+r50 + mixup:
+    baseline, 无正则:  
+    alpha=0.4, lbsmooth=0.0, no-ra: 63.11/85.53/73.38/91.41
+    alpha=0.2, lbsmooth=0.2, no-ra, 100ep:
+    alpha=0.2, lbsmooth=0.2, no-ra, 200ep:
+
+尝试pytorch1.5的fp16，看能不能去掉apex
+
 
 eff加上last-bn: 
 eff换成relu试试: 
@@ -186,14 +205,14 @@ eff换成relu试试:
 使用effnet里面的参数和optimizer看能不能到差不多的: 
 
 
-再试试官方的ema
-慢慢调自己的模型, 看能不能跟官方实现效果一样: 
+effnet换成sgd能行吗
 
 
 mixup: 同batch mix和异batch mix: 直接上lambda还是1-lambda, 使用自定义的ce还是nn.ce 还是sigmoid
 cutmix:
 mixup + cutmix: 
 
+看能不能再refactor一下，能不能让不同模型都兼容，而不是要到代码里面去注释一部分这样: 
 
 检查eval的center-crop是否正确: 
 
@@ -201,6 +220,8 @@ mixup + cutmix:
 
 都可以了的话，再试一下先crop再resize到224:
 
+
+discard 不要改。 eff的还是把drop path rate改一下?
 
 611: 
 如果rmsprop失败了的话, 改回sgd-momentum: 

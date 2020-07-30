@@ -4,14 +4,12 @@ import torch
 
 
 class MixUper(object):
-    def __init__(self, alpha, lb_encoder, mixup='none'):
+    def __init__(self, alpha, mixup='none'):
         self.mixup = mixup
         self.beta_generator = torch.distributions.beta.Beta(alpha, alpha)
-        self.lb_encoder = lb_encoder
 
     def __call__(self, ims, lbs):
         assert ims.size(0) == lbs.size(0)
-        lbs = self.lb_encoder(lbs)
 
         if self.mixup == 'none':
             pass

@@ -236,15 +236,15 @@ class PCANoise(object):
                 [-0.5675, 0.7192, 0.4009],
                 [-0.5808, -0.0045, -0.8140],
                 [-0.5836, -0.6948, 0.4203]] if eig_vec is None else eig_vec
-        self.eig_vec = np.array(eig_vec)
-        self.eig_val = np.repeat(eig_val, 3, axis=0)
+        self.eig_vec = np.array(eig_vec, dtype=np.float32)
+        self.eig_val = np.repeat(eig_val, 3, axis=0).astype(np.float32)
 
     def __call__(self, im):
         '''
         im should be CHW
         '''
         alpha = np.random.normal(0, self.std, size=(1, 3))
-        rgb = np.sum(self.eig_vec * alpha * self.eig_val, axis=1)
+        rgb = np.sum(self.eig_vec * alpha * self.eig_val, axis=1).astype(np.float32)
         im = im + rgb.reshape(3, 1, 1)
         return im
 

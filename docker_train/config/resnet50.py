@@ -10,9 +10,12 @@ momentum = 0.9
 warmup = 'linear'
 warmup_ratio = 0.1
 datapth = './imagenet/'
-n_classes = 1000
+model_args = dict(model_type='resnet-50', n_classes=1000)
 cropsize = 224
 num_workers = 4
 ema_alpha = 0.9999
 fp16_level = 'O1'
 use_sync_bn = False
+mixup = 'mixup'
+mixup_alpha = 0.4
+lb_smooth = 0.0
