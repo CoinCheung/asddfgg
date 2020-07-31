@@ -158,9 +158,9 @@ def main():
     init_model_weights(model)
     model.cuda()
     if use_sync_bn: model = parallel.convert_syncbn_model(model)
-    #  crit = nn.CrossEntropyLoss()
+    crit = nn.CrossEntropyLoss()
     #  crit = LabelSmoothSoftmaxCEV3(lb_smooth)
-    crit = SoftmaxCrossEntropyV2()
+    #  crit = SoftmaxCrossEntropyV2()
 
     ## optimizer
     optim = set_optimizer(model, lr, opt_wd, momentum, nesterov=nesterov)
@@ -205,7 +205,7 @@ def main():
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
             im, lb= im.cuda(), lb.cuda()
-            lb = label_encoder(lb)
+            #  lb = label_encoder(lb)
             #  im, lb = mixuper(im, lb)
             optim.zero_grad()
             logits = model(im)

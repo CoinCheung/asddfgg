@@ -182,7 +182,8 @@ effnet-b1:
 effnet-b1: mixup+lbsmooth(0.1):
     alpha=0.2: 76.09/93.03/77.10/93.54
 r50 + mixup:
-    baseline, 无正则:  
+    baseline, 无正则: 63/85.26/73.93/91.61 
+    换回nn.cross_entropy: 
     alpha=0.4, lbsmooth=0.0, no-ra: 63.11/85.53/73.38/91.41
     alpha=0.2, lbsmooth=0.2, no-ra, 100ep:
     alpha=0.2, lbsmooth=0.2, no-ra, 200ep:
