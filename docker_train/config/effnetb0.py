@@ -14,7 +14,7 @@ model_args = dict(model_type='effcientnet-b0', n_classes=1000)
 cropsize = 224
 num_workers = 4
 ema_alpha = 0.9999
-fp16_level = 'O1'
+use_mixed_precision = True
 use_sync_bn = False
 nesterov = True
 mixup = 'mixup'

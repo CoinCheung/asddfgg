@@ -17,10 +17,12 @@ class EMA(object):
         decay = min(self.alpha, (self.step + 1) / (self.step + 10))
         state = self.model.state_dict()
         for name, params in self.ema_model.named_parameters():
-            params.mul_(decay).add_(1. - decay, state[name])
+            #  params.mul_(decay).add_(1. - decay, state[name])
+            params.mul_(decay).add_(state[name], alpha=1. - decay)
         for name, buffer in self.ema_model.named_buffers():
             if 'running' in name:
-                buffer.mul_(decay).add_(1. - decay, state[name])
+                #  buffer.mul_(decay).add_(1. - decay, state[name])
+                buffer.mul_(decay).add_(state[name], alpha=1. - decay)
             else:
                 buffer.copy_(state[name])
         self.step += 1

@@ -14,8 +14,8 @@ model_args = dict(model_type='resnet-50', n_classes=1000)
 cropsize = 224
 num_workers = 4
 ema_alpha = 0.9999
-fp16_level = 'O1'
+use_mixed_precision = True
 use_sync_bn = False
 mixup = 'mixup'
 mixup_alpha = 0.4
-lb_smooth = 0.0
+lb_smooth = 0.1

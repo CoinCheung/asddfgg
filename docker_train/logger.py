@@ -15,7 +15,7 @@ def setup_logger(model_type, logpth):
         log_level = logging.WARNING
         return
     if not osp.exists(logpth): os.makedirs(logpth)
-    logfile = 'efficientnet-{}.log'.format(time.strftime('%Y-%m-%d-%H-%M-%S'))
+    logfile = '{}-{}.log'.format(model_type, time.strftime('%Y-%m-%d-%H-%M-%S'))
     logfile = osp.join(logpth, logfile)
     FORMAT = '%(levelname)s %(filename)s(%(lineno)d): %(message)s'
     log_level = logging.INFO

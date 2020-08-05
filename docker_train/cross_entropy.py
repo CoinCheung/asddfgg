@@ -5,6 +5,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.cuda.amp as amp
 
 
 class SoftmaxCrossEntropyV1(nn.Module):
@@ -27,6 +28,7 @@ class SoftmaxCrossEntropyV1(nn.Module):
 class CrossEntropyFunction(torch.autograd.Function):
 
     @staticmethod
+    @amp.custom_fwd
     def forward(ctx, logits, label, reduction):
         loss = torch.log_softmax(logits, dim=1).neg_().mul_(label).sum(dim=1)
 
@@ -42,6 +44,7 @@ class CrossEntropyFunction(torch.autograd.Function):
         return loss
 
     @staticmethod
+    @amp.custom_bwd
     def backward(ctx, grad_output):
 
         logits = ctx.logits
