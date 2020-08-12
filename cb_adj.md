@@ -186,14 +186,21 @@ r50 + mixup:
     换成nn.cross_entropy，和1.6的原生tp16: 60.73/83.52/73.83/91.76
     换成nn.cross_entropy，和1.6的原生tp16，用回原来的scheduler: 76.57/93.32/76.85/93.46
     alpha=0.4, lbsmooth=0.0, no-ra: 77.49/93.86/77.55/93.93
-    alpha=0.4, lbsmooth=0.1, no-ra: 
-    alpha=0.2, lbsmooth=0.2, no-ra, 100ep:
-    alpha=0.2, lbsmooth=0.2, no-ra, 200ep:
+    alpha=0.4, lbsmooth=0.1, no-ra: 77.64/93.91/77.72/93.96
+    alpha=0.4, lbsmooth=0.1, ra2-9: 77.46/93.84/77.51/93.80
+
+单上cutmix: 77.4/93.68/77.45/93.73
+改变lam顺序，并且不要max: 77.67/93.88/77.77/93.93
+改成cosine + 300epoch: 
+
+refactor1: 77.73/93.87/77.78/93.94 
+refactor2: 77.61/93.9/77.79/93.91 
 
 改变mixup实现，变成model, crit，都放进去，只mix loss的: 
 r50改成cosine-lr: 
 done 尝试pytorch1.5的fp16，看能不能去掉apex
 
+加上梯度裁剪: 
 
 eff加上last-bn: 
 eff换成relu试试: 
@@ -271,3 +278,23 @@ aug的时候，先auto-aug再random-crop:
 
 有空试一下把acc和ema-acc交换位置， 看结果还一样不。
 
+====
+617:
+先mean再加起来:
+1xlr: 不行了5个epoch之后nan爆掉
+0.5xlr: 72.66/90.7/73.25/91.01
+
+全nearest到最大的logits再加起来
+加mean: nan
+加3x3conv到256最后再mean: 72.53/90.47/0.1/0.4
+加3x3conv到1024最后再mean: 
+加1x1conv到1024最后再mean: 
+
+全nearest到最大的logits再concat起来
+再3x3conv到256最后再mean 
+再3x3conv到1024最后再mean 
+再1x1conv到1024最后再mean 
+再来个1280的:
+
+
+因为effnet最后是使用1x1conv放大到x4的channel数，然后再分类的，所以这里也可以放大最后的channel试试

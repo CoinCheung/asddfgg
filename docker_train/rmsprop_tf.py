@@ -90,17 +90,17 @@ class RMSpropTF(Optimizer):
 
                 if group['weight_decay'] != 0:
                     if 'decoupled_decay' in group and group['decoupled_decay']:
-                        p.data.add_(-group['weight_decay'], p.data)
+                        p.data.add_(p.data, alpha=-group['weight_decay'])
                     else:
-                        grad = grad.add(group['weight_decay'], p.data)
+                        grad = grad.add(p.data, alpha=group['weight_decay'])
 
                 # Tensorflow order of ops for updating squared avg
-                square_avg.add_(one_minus_alpha, grad.pow(2) - square_avg)
+                square_avg.add_(grad.pow(2) - square_avg, alpha=one_minus_alpha)
                 # square_avg.mul_(alpha).addcmul_(1 - alpha, grad, grad)  # PyTorch original
 
                 if group['centered']:
                     grad_avg = state['grad_avg']
-                    grad_avg.add_(one_minus_alpha, grad - grad_avg)
+                    grad_avg.add_(grad - grad_avg, alpha=one_minus_alpha)
                     # grad_avg.mul_(alpha).add_(1 - alpha, grad)  # PyTorch original
                     avg = square_avg.addcmul(-1, grad_avg, grad_avg).add(group['eps']).sqrt_()  # eps moved in sqrt
                 else:
@@ -110,13 +110,13 @@ class RMSpropTF(Optimizer):
                     buf = state['momentum_buffer']
                     # Tensorflow accumulates the LR scaling in the momentum buffer
                     if 'lr_in_momentum' in group and group['lr_in_momentum']:
-                        buf.mul_(group['momentum']).addcdiv_(group['lr'], grad, avg)
+                        buf.mul_(group['momentum']).addcdiv_(grad, avg, value=group['lr'])
                         p.data.add_(-buf)
                     else:
                         # PyTorch scales the param update by LR
                         buf.mul_(group['momentum']).addcdiv_(grad, avg)
-                        p.data.add_(-group['lr'], buf)
+                        p.data.add_(buf, alpha=-group['lr'])
                 else:
-                    p.data.addcdiv_(-group['lr'], grad, avg)
+                    p.data.addcdiv_(grad, avg, value=-group['lr'])
 
         return loss

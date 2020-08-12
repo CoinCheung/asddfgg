@@ -13,10 +13,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 import torch.distributed as dist
-from apex import amp, parallel
+import torch.cuda.amp as amp
 
-#  from efficientnet_refactor import EfficientNet
-#  from resnet import ResNet50
 from models import build_model
 from imagenet.imagenet_cv2 import ImageNet
 #  from imagenet.imagenet import ImageNet
@@ -36,6 +34,7 @@ from cross_entropy import (
 from config.resnet50 import *
 #  from config.effnetb0 import *
 #  from config.effnetb1 import *
+#  from config.ushape_effnetb0 import *
 
 
 ### bs=32, lr0, 8/23
@@ -92,7 +91,7 @@ def cal_l2_loss(model, weight_decay):
     return 0.5 * l2loss
 
 
-def set_optimizer(model, lr, wd, momentum, nesterov):
+def set_optimizer(model, opt_args, n_iters_per_epoch):
     wd_params, non_wd_params = [], []
     for name, param in model.named_parameters():
         param_len = param.dim()
@@ -114,21 +113,20 @@ def set_optimizer(model, lr, wd, momentum, nesterov):
     #      weight_decay=wd,
     #      momentum=momentum
     #  )
-    optim = torch.optim.SGD(
-        params_list, lr=lr, weight_decay=wd, momentum=momentum, nesterov=nesterov
-    )
+    optim = torch.optim.SGD(params_list, **opt_args)
     ## scheduler
-    scheduler = WarmupExpLrScheduler(
-        optim, gamma=0.97, interval=n_iters_per_epoch * 2.4,
-        warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
-        warmup_ratio=warmup_ratio
-    )
-    #  scheduler = WarmupStepLrScheduler(
-    #      optim, milestones=[n_iters_per_epoch * el for el in [30, 60, 90]],
-    #      warmup_iter=n_iters_per_epoch * 0, warmup=warmup,
+    #  scheduler = WarmupExpLrScheduler(
+    #      optim, gamma=0.97, interval=n_iters_per_epoch * 2.4,
+    #      warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
     #      warmup_ratio=warmup_ratio
     #  )
-    return optim
+    scheduler = WarmupStepLrScheduler(
+        optim, milestones=[n_iters_per_epoch * el for el in [30, 60, 90]],
+        warmup_iter=n_iters_per_epoch * 0, warmup=warmup,
+        warmup_ratio=warmup_ratio
+    )
+
+    return optim, scheduler
 
 
 def main():
@@ -161,39 +159,36 @@ def main():
     ## model
     #  model = EfficientNet(model_type, n_classes)
     model = build_model(**model_args)
-
-
-    ## sync bn
-    #  if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-
     init_model_weights(model)
     model.cuda()
-    if use_sync_bn: model = parallel.convert_syncbn_model(model)
-    crit = nn.CrossEntropyLoss()
+
+    ## sync bn
+    if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    #  crit = nn.CrossEntropyLoss()
     #  crit = LabelSmoothSoftmaxCEV3(lb_smooth)
-    #  crit = SoftmaxCrossEntropyV2()
+    crit = SoftmaxCrossEntropyV1()
 
     ## optimizer
-    optim = set_optimizer(model, lr, opt_wd, momentum, nesterov=nesterov)
+    opt_args = dict(lr=lr, weight_decay=opt_wd, nesterov=nesterov, momentum=momentum)
+    schdlr_args = dict(n_iters_per_epoch=n_iters_per_epoch)
+    optim, scheduler = set_optimizer(model, opt_args, n_iters_per_epoch)
 
-    ## apex
-    model, optim = amp.initialize(model, optim, opt_level=fp16_level)
+    ## mixed precision
+    scaler = amp.GradScaler()
 
     ## ema
     ema = EMA(model, ema_alpha)
 
     ## ddp training
-    model = parallel.DistributedDataParallel(model, delay_allreduce=True)
-    #  local_rank = dist.get_rank()
-    #  model = nn.parallel.DistributedDataParallel(
-    #      model, device_ids=[local_rank, ], output_device=local_rank
-    #  )
+    local_rank = dist.get_rank()
+    model = nn.parallel.DistributedDataParallel(
+        model, device_ids=[local_rank, ], output_device=local_rank
+    )
 
     ## log meters
     time_meter = TimeMeter(n_iters)
     loss_meter = AvgMeter()
     logger = logging.getLogger()
-
 
     # for mixup
     label_encoder = OnehotEncoder(n_classes=model_args['n_classes'], lb_smooth=lb_smooth)
@@ -205,15 +200,16 @@ def main():
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
             im, lb= im.cuda(), lb.cuda()
-            #  lb = label_encoder(lb)
-            #  im, lb = mixuper(im, lb)
+            lb = label_encoder(lb)
+            im, lb = mixuper(im, lb)
             optim.zero_grad()
-            logits = model(im)
-            loss = crit(logits, lb) #+ cal_l2_loss(model, weight_decay)
-            #  loss.backward()
-            with amp.scale_loss(loss, optim) as scaled_loss:
-                scaled_loss.backward()
-            optim.step()
+            with amp.autocast(enabled=use_mixed_precision):
+                logits = model(im)
+                loss = crit(logits, lb) #+ cal_l2_loss(model, weight_decay)
+            scaler.scale(loss).backward()
+            scaler.step(optim)
+            scaler.update()
+
             torch.cuda.synchronize()
             ema.update_params()
             time_meter.update()

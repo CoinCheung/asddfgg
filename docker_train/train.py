@@ -21,10 +21,11 @@ from imagenet.imagenet_cv2 import ImageNet
 from eval import eval_model
 from meters import TimeMeter, AvgMeter
 from logger import setup_logger
-from ops import EMA, MixUper, OnehotEncoder
+from ops import EMA, MixUper, CutMixer, OnehotEncoder
 from label_smooth import LabelSmoothSoftmaxCEV3
 from rmsprop_tf import RMSpropTF
-from lr_scheduler import WarmupExpLrScheduler, WarmupStepLrScheduler
+from lr_scheduler import (
+        WarmupExpLrScheduler, WarmupStepLrScheduler, WarmupCosineLrScheduler)
 from cross_entropy import (
         SoftmaxCrossEntropyV2,
         SoftmaxCrossEntropyV1
@@ -34,6 +35,7 @@ from cross_entropy import (
 from config.resnet50 import *
 #  from config.effnetb0 import *
 #  from config.effnetb1 import *
+#  from config.ushape_effnetb0 import *
 
 
 ### bs=32, lr0, 8/23
@@ -90,7 +92,7 @@ def cal_l2_loss(model, weight_decay):
     return 0.5 * l2loss
 
 
-def set_optimizer(model, lr, wd, momentum, nesterov):
+def set_optimizer(model, opt_type, opt_args, schdlr_type, schdlr_args):
     wd_params, non_wd_params = [], []
     for name, param in model.named_parameters():
         param_len = param.dim()
@@ -104,18 +106,27 @@ def set_optimizer(model, lr, wd, momentum, nesterov):
         {'params': wd_params},
         {'params': non_wd_params, 'weight_decay': 0},
     ]
-    #  optim = RMSpropTF(
-    #      params_list,
-    #      lr=lr,
-    #      alpha=0.9,
-    #      eps=1e-3,
-    #      weight_decay=wd,
-    #      momentum=momentum
+    opt_dict = {'SGD': torch.optim.SGD, 'RMSpropTF': RMSpropTF}
+    schdlr_dict = {'ExpLr': WarmupExpLrScheduler,
+                'StepLr': WarmupStepLrScheduler,
+                'CosineLr': WarmupCosineLrScheduler,
+                }
+
+    optim = opt_dict[opt_type](params_list, **opt_args)
+    scheduler = schdlr_dict[schdlr_type](optim, **schdlr_args)
+    ## scheduler
+    #  scheduler = WarmupExpLrScheduler(
+    #      optim, gamma=0.97, interval=n_iters_per_epoch * 2.4,
+    #      warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
+    #      warmup_ratio=warmup_ratio
     #  )
-    optim = torch.optim.SGD(
-        params_list, lr=lr, weight_decay=wd, momentum=momentum, nesterov=nesterov
-    )
-    return optim
+    #  scheduler = WarmupStepLrScheduler(
+    #      optim, milestones=[n_iters_per_epoch * el for el in [30, 60, 90]],
+    #      warmup_iter=n_iters_per_epoch * 0, warmup=warmup,
+    #      warmup_ratio=warmup_ratio
+    #  )
+
+    return optim, scheduler
 
 
 def main():
@@ -158,7 +169,9 @@ def main():
     crit = SoftmaxCrossEntropyV1()
 
     ## optimizer
-    optim = set_optimizer(model, lr, opt_wd, momentum, nesterov=nesterov)
+    optim, scheduler = set_optimizer(model,
+            opt_type, opt_args, schdlr_type, schdlr_args)
+    scheduler.update_by_iter(n_iters_per_epoch)
 
     ## mixed precision
     scaler = amp.GradScaler()
@@ -177,21 +190,10 @@ def main():
     loss_meter = AvgMeter()
     logger = logging.getLogger()
 
-    ## scheduler
-    #  scheduler = WarmupExpLrScheduler(
-    #      optim, gamma=0.97, interval=n_iters_per_epoch * 2.4,
-    #      warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
-    #      warmup_ratio=warmup_ratio
-    #  )
-    scheduler = WarmupStepLrScheduler(
-        optim, milestones=[n_iters_per_epoch * el for el in [30, 60, 90]],
-        warmup_iter=n_iters_per_epoch * 0, warmup=warmup,
-        warmup_ratio=warmup_ratio
-    )
-
     # for mixup
     label_encoder = OnehotEncoder(n_classes=model_args['n_classes'], lb_smooth=lb_smooth)
     mixuper = MixUper(mixup_alpha, mixup=mixup)
+    cutmixer = CutMixer(cutmix_beta)
 
     ## train loop
     for e in range(n_epoches):
@@ -200,22 +202,27 @@ def main():
         for idx, (im, lb) in enumerate(dl_train):
             im, lb= im.cuda(), lb.cuda()
             lb = label_encoder(lb)
-            im, lb = mixuper(im, lb)
+            #  im, lb = mixuper(im, lb)
+            im, lb = cutmixer(im, lb)
             optim.zero_grad()
             with amp.autocast(enabled=use_mixed_precision):
                 logits = model(im)
                 loss = crit(logits, lb) #+ cal_l2_loss(model, weight_decay)
             scaler.scale(loss).backward()
+
+            scaler.unscale_(optim)
+            nn.utils.clip_grad_norm_(model.parameters(), grad_clip_norm)
+
             scaler.step(optim)
             scaler.update()
-
             torch.cuda.synchronize()
             ema.update_params()
             time_meter.update()
             loss_meter.update(loss.item())
             if (idx + 1) % 200 == 0:
                 t_intv, eta = time_meter.get()
-                lr_log = scheduler.get_lr_ratio() * lr
+                lr_log = scheduler.get_lr()
+                lr_log = sum(lr_log) / len(lr_log)
                 msg = 'epoch: {}, iter: {}, lr: {:.4f}, loss: {:.4f}, time: {:.2f}, eta: {}'.format(
                     e + 1, idx + 1, lr_log, loss_meter.get()[0], t_intv, eta)
                 logger.info(msg)

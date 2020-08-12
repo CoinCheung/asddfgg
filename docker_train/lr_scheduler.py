@@ -19,6 +19,7 @@ class WarmupLrScheduler(torch.optim.lr_scheduler._LRScheduler):
         self.warmup_iter = warmup_iter
         self.warmup_ratio = warmup_ratio
         self.warmup = warmup
+        self.use_epoch = True
         super(WarmupLrScheduler, self).__init__(optimizer, last_epoch)
 
     def get_lr(self):
@@ -40,10 +41,24 @@ class WarmupLrScheduler(torch.optim.lr_scheduler._LRScheduler):
         assert self.warmup in ('linear', 'exp')
         alpha = self.last_epoch / self.warmup_iter
         if self.warmup == 'linear':
-            ratio = self.warmup_ratio + (1 - self.warmup_ratio) * alpha
+            ratio = self.warmup_ratio + (1. - self.warmup_ratio) * alpha
         elif self.warmup == 'exp':
             ratio = self.warmup_ratio ** (1. - alpha)
         return ratio
+
+    def update_by_iter(self, n_iters_per_epoch):
+        self.warmup_update_by_iter(n_iters_per_epoch)
+        self.main_update_by_iter(n_iters_per_epoch)
+        self.use_epoch = False
+        return self
+
+    def main_update_by_iter(self, n_iters_per_epoch):
+        raise NotImplementedError
+
+    def warmup_update_by_iter(self, n_iters_per_epoch):
+        if self.use_epoch:
+            self.warmup_iter *= n_iters_per_epoch
+
 
 
 class WarmupPolyLrScheduler(WarmupLrScheduler):
@@ -93,6 +108,10 @@ class WarmupExpLrScheduler(WarmupLrScheduler):
         ratio = self.gamma ** (real_iter // self.interval)
         return ratio
 
+    def main_update_by_iter(self, n_iters_per_epoch):
+        if self.use_epoch:
+            self.interval = n_iters_per_epoch * self.interval
+
 
 class WarmupCosineLrScheduler(WarmupLrScheduler):
 
@@ -117,6 +136,10 @@ class WarmupCosineLrScheduler(WarmupLrScheduler):
         return self.eta_ratio + (1 - self.eta_ratio) * (
                 1 + math.cos(math.pi * self.last_epoch / real_max_iter)) / 2
 
+    def main_update_by_iter(self, n_iters_per_epoch):
+        if self.use_epoch:
+            self.max_iter = n_iters_per_epoch * self.max_iter
+
 
 class WarmupStepLrScheduler(WarmupLrScheduler):
 
@@ -139,6 +162,10 @@ class WarmupStepLrScheduler(WarmupLrScheduler):
         real_iter = self.last_epoch - self.warmup_iter
         ratio = self.gamma ** bisect_right(self.milestones, real_iter)
         return ratio
+
+    def main_update_by_iter(self, n_iters_per_epoch):
+        if self.use_epoch:
+            self.milestones = [n_iters_per_epoch * el for el in self.milestones]
 
 
 if __name__ == "__main__":
