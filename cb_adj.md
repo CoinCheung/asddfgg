@@ -191,13 +191,16 @@ r50 + mixup:
 
 单上cutmix: 77.4/93.68/77.45/93.73
 改变lam顺序，并且不要max: 77.67/93.88/77.77/93.93
-改成cosine + 300epoch: 
+r50改成cosine-lr + 300ep + cutmix 原版: 78.84/94.35/78.96/94.39
+r50改成cosine-lr + 300ep + cutmix 任意大小位置的: 78.66/94.3/78.82/94.39
+使用自己的cdataloader，另外弄一个train.py
 
 refactor1: 77.73/93.87/77.78/93.94 
 refactor2: 77.61/93.9/77.79/93.91 
 
 改变mixup实现，变成model, crit，都放进去，只mix loss的: 
-r50改成cosine-lr: 
+
+
 done 尝试pytorch1.5的fp16，看能不能去掉apex
 
 加上梯度裁剪: 
@@ -287,7 +290,7 @@ aug的时候，先auto-aug再random-crop:
 全nearest到最大的logits再加起来
 加mean: nan
 加3x3conv到256最后再mean: 72.53/90.47/0.1/0.4
-加3x3conv到1024最后再mean: 
+加3x3conv到1024最后再mean: 73.51/91.32/0.1/0.6
 加1x1conv到1024最后再mean: 
 
 全nearest到最大的logits再concat起来
