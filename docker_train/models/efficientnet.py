@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.nn import BatchNorm2d
 from .conv_ops import Conv2dWS as Conv2d
 #  from .swish import SwishFunctionV3, SwishV3
-from .swish import SwishV3 as Activation
+from pytorch_loss import SwishV3 as Activation
 
 
 def round_channels(n_chan, multiplier):

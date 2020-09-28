@@ -23,8 +23,8 @@ from imagenet.imagenet_cv2 import ImageNet
 from eval import eval_model
 from meters import TimeMeter, AvgMeter
 from logger import setup_logger
-from ops import EMA, MixUper, OnehotEncoder
-from label_smooth import LabelSmoothSoftmaxCEV3
+from ops import EMA, MixUper
+from pytorch_loss import LabelSmoothSoftmaxCEV3, OnehotEncoder
 from rmsprop_tf import RMSpropTF
 from lr_scheduler import WarmupExpLrScheduler, WarmupStepLrScheduler
 from cross_entropy import (

@@ -131,7 +131,7 @@ opencv vs pil:
 #####
 1. 前面不行的原因是
     * pil reisize的interpolate的方法需要改成bilinear才行，如果怎么都不说只使用默认的话，怕是不太行，torchvision.transforms里面就给设成了bilinear
-    * opencv的resize的h和w搞返了
+    * opencv的resize的h和w搞反了
 ####
 
 resnet50: 
@@ -198,6 +198,41 @@ r50改成cosine-lr + 300ep + cutmix 任意大小位置的: 78.66/94.3/78.82/94.3
 refactor1: 77.73/93.87/77.78/93.94 
 refactor2: 77.61/93.9/77.79/93.91 
 
+r50, 使用自己的cdataloader:
+baseline: 76.55/93.21/77/93.37
++ra-2-9: 77.45/93.66/77.44/93.67
++pca-noise: 77.44/93.62/77.49/93.67
+所有的double都换成float看能加速不: 好像没有太大区别
+
+r50
+用原来的dataloder + cuda_one_hot: 76.64/93.27/76.97/93.47
+用cpp的image reader + cuda one hot: 可以，但是太慢了
+
+再来一遍r50, 300x, cosine, lbsmooth:
+lbsmooth + mixup + cutmix + ra:  78.09/94.06/78.14/94.04
+lbsmooth + cutmix + ra:  78.83/94.36/78.84/94.35
+lbsmooth + ra: 78.14/93.96/78.27/94.01 
+lbsmooth + cutmix:  78.58/94.30/78.77/94.37
+
+
+500ep: lbsmooth + cutmix + ra: 79.11/94.47/79.09/94.47
+500ep: lbsmooth + cutmix + mixup + ra: 78.48/94.21/78.53/94.25
+
+200ep: lbsmooth:
+200ep: lbsmooth + ra:
+200ep: lbsmooth + mixup:
+200ep: lbsmooth + cutmix:
+
+改成data和datasets分开的
+
+结论: 
+    1. cutmix跟ra作用重合
+    2. cutmix和mixup一起用效果变坏
+
+effnet改成把conv_out从backbone里面拿出去:  
+effnet把conv和conv_ws版本分开: 
+
+
 改变mixup实现，变成model, crit，都放进去，只mix loss的: 
 
 
@@ -221,6 +256,8 @@ eff换成relu试试:
 
 
 effnet换成sgd能行吗
+
+看是否把se加上temperature，并且前10个epoch从T=30一直anneal到1这样会加快收敛。  
 
 
 mixup: 同batch mix和异batch mix: 直接上lambda还是1-lambda, 使用自定义的ce还是nn.ce 还是sigmoid
@@ -247,6 +284,8 @@ discard 不要改。 eff的还是把drop path rate改一下?
     用回ce: 
 
 看lr是否是sqrt的关系, 而不是linear的关系?
+
+看一下要不要在保存模型的时候同时也保存一个backbone的，保存一下专门用来抽feature用的模型，并且实现加载功能
 
 
 使用lmdb看能加速不
@@ -291,13 +330,68 @@ aug的时候，先auto-aug再random-crop:
 加mean: nan
 加3x3conv到256最后再mean: 72.53/90.47/0.1/0.4
 加3x3conv到1024最后再mean: 73.51/91.32/0.1/0.6
-加1x1conv到1024最后再mean: 
+加1x1conv到1024最后再mean: 73.66/91.28/0.1/0.6
 
-全nearest到最大的logits再concat起来
-再3x3conv到256最后再mean 
-再3x3conv到1024最后再mean 
-再1x1conv到1024最后再mean 
-再来个1280的:
+全nearest到最大的logits再concat起来: 
+再3x3conv到256最后再mean: 72.66/90.65/0.1/0.5
+再3x3conv到1024最后再mean: 73.89/91.26/0.1/0.5
+再1x1conv到1024最后再mean  discard
+
+给前面的stage加一些conv，前几个stage也像最后一个一样，加一个conv_head, 都是x4倍的:
+再3x3conv到1024最后再mean: 还是会变0.1
+只使用最后的8x的feature，并且修正fpn的不对的地方: 还是会变0.1
+三个feature先mean，再加起来，再加nn.linear: 还是变0.1  
+
+改成sgd+cosine: 
+三个feature先mean再加起来，然后nn.linear到n_classes:
+    70.46/89.28/70.54/89.35
+三个feature分别加几个conv到32x再相加，再加conv，再mean啥的: 
+    71.46/89.75/71.48/89.77
+把学习率调大(上面这个是1.6e-2):
+    lr=1.6e-1: 74.5/91.88/0.0/0.4
+
+上618的参数0.2(128)去掉ws, 使用swish, ep=100, 去掉ra/lbsmooth/mix:
+    8x, 16x分别下采样，再相加，再conv，再mean/linear
+        73.97/91.7/74.48/91.92
+    去掉pyramid里面额外的conv:
+        73.92/91.66/74.24/91.89
+
+8x,16x分别downsample 2/1次，再相另: 73.92/91.66/74.24/91.89
+直接都nearest到最大，然后相加再conv_out: 74.23/91.87/74.52/92.08
+直接都nearest到最大，然后concat再conv_out: 74.12/91.77/74.43/91.95
+
+直接都nearest到最大，3x3conv然后相加再bn+act:
+
 
 
 因为effnet最后是使用1x1conv放大到x4的channel数，然后再分类的，所以这里也可以放大最后的channel试试
+
+====
+618:
+pretrain-backbone, cosine-lr, rms-prop, ep=150, ra, lbsmooth=0.1:
+effnet-swish: 75.72/92.62/75.64/92.64
+effnet-hswish: 75.88/92.66/75.97/92.60
+effnet-relu: 75.88/92.68/75.87/92.62
+调整之后的effnet-relu: 
+    nn.conv: 75.86/92.71/75.81/92.71
+    wsconv: model的ema: ema变成0了
+            state_dict的ema: naive变成0了。
+            如果不行，去掉convws的state_dict，或者在里面加一个参数啥的
+    改用sgd + cosine lr + ws:  65.79/86.49/65.82/86.51 --> n1
+    看样子, rmsprob和wsconv是冲突的.  
+    sgd + cosine lr + nn.conv: 65.72/86.57/65.75/86.58
+
+    像regnet里面那样的参数:  
+    sgd + cosine lr + nn.conv, lr=0.1/(im_per_gpu=128，wd=5e-5): 
+        72.18/90.62/1/5
+    看一下变成0的ema是否是因为出现了nan -- 不是，没有，别瞎说
+    再来上面的，然后改成100ep，像pycls那样:  70.23/89.47/70.23/89.37
+    去掉ws看是否有用: 73.38/91.37/73.41/91.37
+
+nn.conv2d+swish+pycls超参, +ra, +lbsmooth: 74.96/92.07/74.86/92
+nn.conv2d+swish+pycls超参, -ra, -lbsmooth: 75.46/92.46/75.50/92.53 -- 达到pycls的75.1了
+nn.conv2d+hswish+pycls超参: 75.28/92.46/75.45/92.52
+
+nn.conv2d+hswish+pycls超参, +ra, +lbsmooth, ep=200: 76.29/92.87/76.27/92.88
+nn.conv2d+hswish+pycls超参, +ra, +lbsmooth + cutmix, ep=400: 73.71/91.81/73.64/91.8
+nn.conv2d+hswish+pycls超参, +ra, +lbsmooth + cutmix, ep=200: 

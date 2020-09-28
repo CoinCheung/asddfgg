@@ -9,4 +9,6 @@ python -c 'import torch; print(torch.__version__)'
 
 python -m torch.distributed.launch --nproc_per_node=$N_GPUS --master_port=$PORT train.py
 
+# python -m torch.distributed.launch --nproc_per_node=$N_GPUS --master_port=$PORT train_cdata.py
+
 

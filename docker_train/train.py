@@ -21,8 +21,8 @@ from imagenet.imagenet_cv2 import ImageNet
 from eval import eval_model
 from meters import TimeMeter, AvgMeter
 from logger import setup_logger
-from ops import EMA, MixUper, CutMixer, OnehotEncoder
-from label_smooth import LabelSmoothSoftmaxCEV3
+from ops import EMA, MixUper, CutMixer
+from pytorch_loss import LabelSmoothSoftmaxCEV3, OnehotEncoder
 from rmsprop_tf import RMSpropTF
 from lr_scheduler import (
         WarmupExpLrScheduler, WarmupStepLrScheduler, WarmupCosineLrScheduler)
@@ -115,16 +115,6 @@ def set_optimizer(model, opt_type, opt_args, schdlr_type, schdlr_args):
     optim = opt_dict[opt_type](params_list, **opt_args)
     scheduler = schdlr_dict[schdlr_type](optim, **schdlr_args)
     ## scheduler
-    #  scheduler = WarmupExpLrScheduler(
-    #      optim, gamma=0.97, interval=n_iters_per_epoch * 2.4,
-    #      warmup_iter=n_iters_per_epoch * 5, warmup=warmup,
-    #      warmup_ratio=warmup_ratio
-    #  )
-    #  scheduler = WarmupStepLrScheduler(
-    #      optim, milestones=[n_iters_per_epoch * el for el in [30, 60, 90]],
-    #      warmup_iter=n_iters_per_epoch * 0, warmup=warmup,
-    #      warmup_ratio=warmup_ratio
-    #  )
 
     return optim, scheduler
 
@@ -146,7 +136,7 @@ def main():
     sampler_val = torch.utils.data.distributed.DistributedSampler(
         dataset_eval, shuffle=False)
     batch_sampler_val = torch.utils.data.sampler.BatchSampler(
-        sampler_val, batchsize * 2, drop_last=False
+        sampler_val, batchsize * 1, drop_last=False
     )
     dl_eval = DataLoader(
         dataset_eval, batch_sampler=batch_sampler_val,
@@ -192,7 +182,7 @@ def main():
 
     # for mixup
     label_encoder = OnehotEncoder(n_classes=model_args['n_classes'], lb_smooth=lb_smooth)
-    mixuper = MixUper(mixup_alpha, mixup=mixup)
+    mixuper = MixUper(mixup_alpha)
     cutmixer = CutMixer(cutmix_beta)
 
     ## train loop
@@ -200,10 +190,12 @@ def main():
         sampler_train.set_epoch(e)
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
-            im, lb= im.cuda(), lb.cuda()
+            im, lb= im.cuda(non_blocking=True), lb.cuda(non_blocking=True)
+
             lb = label_encoder(lb)
             #  im, lb = mixuper(im, lb)
-            im, lb = cutmixer(im, lb)
+            #  im, lb = cutmixer(im, lb)
+
             optim.zero_grad()
             with amp.autocast(enabled=use_mixed_precision):
                 logits = model(im)
@@ -235,7 +227,7 @@ def main():
             msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
             logger.info(msg)
     if dist.is_initialized() and dist.get_rank() == 0:
-        torch.save(model.module.state_dict(), './res/model_final.pth')
+        torch.save(model.module.state_dict(), './res/model_final_naive.pth')
         torch.save(ema.ema_model.state_dict(), './res/model_final_ema.pth')
 
 

@@ -8,6 +8,7 @@ class CutMixer(object):
     def __init__(self, alpha):
         self.beta_generator = torch.distributions.beta.Beta(alpha, alpha)
 
+    @torch.no_grad()
     def __call__(self, ims, lbs):
         assert ims.size(0) == lbs.size(0)
 
@@ -32,7 +33,7 @@ class CutMixer(object):
         lam = lam.view(-1, 1)
         lbs = lam * lbs + (1. - lam) * lbs[indices]
 
-        return ims, lbs
+        return ims.detach(), lbs.detach()
 
     #  def __call__(self, ims, lbs):
     #      assert ims.size(0) == lbs.size(0)

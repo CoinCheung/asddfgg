@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .swish import SwishV3 as Activation
+from pytorch_loss import SwishV3 as Activation
 #  import nn.ReLU as Activation
 
 ## TODO :use swish rather than relu

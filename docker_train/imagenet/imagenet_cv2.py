@@ -18,6 +18,7 @@ class ImageNet(Dataset):
         super(ImageNet, self).__init__()
         self.samples = []
         self.mode = mode
+        self.cropsize = cropsize
         if mode == 'train':
             txtpth = osp.join(root, 'train.txt')
             img_root_pth = osp.join(root, 'data', 'train')
@@ -49,9 +50,6 @@ class ImageNet(Dataset):
         short_size = int(cropsize * 256 / 224)
         self.trans_val = T.Compose([
             T.ResizeCenterCrop(crop_size=cropsize, short_size=short_size),
-            #  T.ResizeCenterCrop((cropsize, cropsize)),
-            #  T.Resize(256),
-            #  T.CenterCrop(224),
             T.ToTensor(),
             T.Normalize(img_mean, img_std)
         ])
@@ -64,17 +62,21 @@ class ImageNet(Dataset):
     def __getitem__(self, idx):
         impth, label = self.samples[idx]
         im = self.readimg(impth)
-        #  im = T.Resize(256)(im)
-        #  from PIL import Image
-        #  im = Image.fromarray(im)
-        #  im = Image.open(impth).convert('RGB')
         if self.mode == 'train':
             im = self.trans_train(im)
         else:
             im = self.trans_val(im)
-        #  if not im.data.c_contiguous: im = im.copy()
-        #  im = torch.from_numpy(im)
         return im, label
+
+    #  def __getitem__(self, idx):
+    #      import cdataloader
+    #      impth, label = self.samples[idx]
+    #      cropsize = [self.cropsize, self.cropsize]
+    #      pca_noies = 0.1
+    #      is_train = True if self.mode == 'train' else False
+    #      use_ra = False
+    #      im = cdataloader.get_img_by_path(impth, cropsize, pca_noies, is_train, use_ra)
+    #      return im, label
 
     def __len__(self):
         return len(self.samples)
