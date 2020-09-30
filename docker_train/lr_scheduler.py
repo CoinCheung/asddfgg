@@ -134,7 +134,7 @@ class WarmupCosineLrScheduler(WarmupLrScheduler):
         real_iter = self.last_epoch - self.warmup_iter
         real_max_iter = self.max_iter - self.warmup_iter
         return self.eta_ratio + (1 - self.eta_ratio) * (
-                1 + math.cos(math.pi * self.last_epoch / real_max_iter)) / 2
+                1 + math.cos(math.pi * real_iter / real_max_iter)) / 2
 
     def main_update_by_iter(self, n_iters_per_epoch):
         if self.use_epoch:

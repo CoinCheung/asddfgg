@@ -288,7 +288,7 @@ discard 不要改。 eff的还是把drop path rate改一下?
 看一下要不要在保存模型的时候同时也保存一个backbone的，保存一下专门用来抽feature用的模型，并且实现加载功能
 
 
-使用lmdb看能加速不
+discard 使用lmdb看能加速不
 
 原版里面是使用的l2loss在每一个param上，并且对bn的所有参数都不加l2
 
@@ -303,22 +303,34 @@ wd=0, 然后使用手动weight decay的方式加wd, 像adam一样:
 
 
 
-再来scheduler， 
-warmup, ratio啥的: 
-
-eval的时候是center-crop吗: 
-
-其他scheduler: cosine: anneal到0
-wd改用l2，不用wd: 
-
-先read， 再randomresizecrop， 再flip， 最后再autoaug
-
 mixup: 这这里的mixup是每个不同的样本有各自的lam， 另外， lam是max(lam, 1-lam)这样确定的。 再试试shuffle单个batch的版本和两个batch合并的版本。  
 而且好像不是shuffle， 而是imgs 和imgs[::-1]做的mixup. 
 
-aug的时候，先auto-aug再random-crop: 
+====
+先试pre-act-r50:
+baseline: 使用r50训练参数: 
+    76.76/93.32/77.07/93.57
+    mem=6600m, time=120s
+    感觉有点跳，95ep的时候已经上77了，然后最后5个ep之后又掉下来了
 
-有空试一下把acc和ema-acc交换位置， 看结果还一样不。
+前面加一个BN:
+    76.75/93.31/77.15/93.61
+    mem=6600m, time=125s
+
+修正cosine-lr重新来:  
+一开始改成conv-bn-relu-maxpool，再加后面这些
+    mem=6621m, time=122s:
+
+baseline:
+
+baseline+bn:
+
+resnetv1:
+
+都试完，再看是否需要把shortcut加上avg-pool这种:
+
+别忘了再来一个r50的，看r50的内存啥的，还有效果啥的都咋样
+
 
 ====
 617:

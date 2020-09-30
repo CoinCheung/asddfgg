@@ -32,7 +32,8 @@ from cross_entropy import (
     )
 
 
-from config.resnet50 import *
+from config.pa_resnet50 import *
+#  from config.resnet50 import *
 #  from config.effnetb0 import *
 #  from config.effnetb1 import *
 #  from config.ushape_effnetb0 import *
