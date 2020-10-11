@@ -320,17 +320,42 @@ baseline: 使用r50训练参数:
 修正cosine-lr重新来:  
 一开始改成conv-bn-relu-maxpool，再加后面这些
     mem=6621m, time=122s:
+    76.92/93.50/76.70/93.39
 
 baseline:
+    mem=6645m, time=120s: 76.97/93.56/76.79/93.49
+baseline+bn: 
+    77.16/93.64/76.69/93.46
 
-baseline+bn:
+resnetv1，并且修正最后的stride=1的问题，改成dilation那种:
+    mem=7917m, time=119s: 76.99/93.53/76.80/93.43
+resnetv1前面加bn:
+    mem=7917m, time=119s: 77.2/93.55/76.76/93.51
 
-resnetv1:
+加上se之后看是否需要加上last-bn:
+不带last_bn: 78.11/94.05/78.46/94.24
+带last_bn: 
+
+pa-resnet50-se:78.27/94.16/78.11/94.17
+
+pa-resnet101: 78.05/94.07/77.91/94.13
+
+pa-resnet101-se:
+
+618把se-block也加进去: 77.15/93.72/77.13/93.67
+
+
+看是否需要实现一个aff-atten的: 
 
 都试完，再看是否需要把shortcut加上avg-pool这种:
 
 别忘了再来一个r50的，看r50的内存啥的，还有效果啥的都咋样
 
+refactor:
+resnet和 resnet-slim分开的，不一定分文件，但是使用两个类
+单弄一个resnet-base文件吧，里面是bottleneckv1/v2, create_layer啥的，然后把其他的单拿出来
+都完事了之后，弄一个hub,把自己的权重都推上去
+然后都改成保存的时候保存一个backbone的state_dict，再保存一个model的:
 
 ====
 617:
