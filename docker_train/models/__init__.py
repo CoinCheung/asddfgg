@@ -1,6 +1,6 @@
 
 from .efficientnet_refactor import EfficientNet
-from .resnet import ResNet, SEResNet
+from .resnet import ResNet, SEResNet, ASKCResNet
 from .ushape_effnet import UShapeEffNetB0ClassificationWrapper
 from .pa_resnet import PAResNet, SE_PAResNet
 
@@ -23,6 +23,8 @@ def build_model(model_type, n_classes):
         model = SE_PAResNet(n_classes=n_classes)
     elif model_type == 'se_pa_resnet-101':
         model = SE_PAResNet(n_layers=101, n_classes=n_classes)
+    elif model_type == 'askc-resnet-101':
+        model = ASKCResNet(n_layers=101, n_classes=n_classes)
     elif model_type == 'ushape-effnet-b0':
         model = UShapeEffNetB0ClassificationWrapper(n_classes)
     return model

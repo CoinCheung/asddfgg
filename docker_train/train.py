@@ -35,7 +35,8 @@ from cross_entropy import (
 #  from config.pa_resnet50 import *
 #  from config.pa_resnet101 import *
 #  from config.resnet50 import *
-from config.resnet101 import *
+#  from config.resnet101 import *
+from config.askc_resnet101 import *
 #  from config.se_resnet50 import *
 #  from config.se_pa_resnet50 import *
 #  from config.se_pa_resnet101 import *
