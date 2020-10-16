@@ -356,9 +356,19 @@ pa-resnet101-se:
 
 refactor:
 resnet和 resnet-slim分开的，不一定分文件，但是使用两个类
-单弄一个resnet-base文件吧，里面是bottleneckv1/v2, create_layer啥的，然后把其他的单拿出来
+done 单弄一个resnet-base文件吧，里面是bottleneckv1/v2, create_layer啥的，然后把其他的单拿出来
 都完事了之后，弄一个hub,把自己的权重都推上去
 然后都改成保存的时候保存一个backbone的state_dict，再保存一个model的:
+
+model_zoo:
+r50:
+r101:
+se-r50:
+se-r101:
+pa-r50:
+pa-r101:
+pa-se-r50:
+pa-se-r101:
 
 ====
 617:

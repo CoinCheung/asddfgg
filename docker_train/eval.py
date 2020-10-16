@@ -2,15 +2,14 @@ import os.path as osp
 import argparse
 import numpy as np
 
-#  from efficientnet_refactor import EfficientNet
-#  from resnet import ResNet50
 from models import build_model
 import torch
 import torch.distributed as dist
 from torch.utils.data import Dataset, DataLoader
 from imagenet.imagenet_cv2 import ImageNet
 
-from config.effnetb1 import *
+#  from config.effnetb1 import *
+from config.resnet101 import *
 
 
 def evaluate(model, dl_eval):
@@ -52,13 +51,14 @@ def main():
     #  model = ResNet50()
     #  model = EfficientNet(model_type, n_classes)
     model = build_model(**model_args)
-    sd = torch.load('./res/model_final.pth', map_location='cpu')
-    new_sd = {}
-    for k, v in sd.items():
-        k = k.replace('module.', '')
-        new_sd[k] = v
-    model.load_state_dict(new_sd)
+    sd = torch.load('./res/model_final_ema_r101.pth', map_location='cpu')
+    #  new_sd = {}
+    #  for k, v in sd.items():
+    #      k = k.replace('module.', '')
+    #      new_sd[k] = v
+    #  model.load_state_dict(new_sd)
     #  model.load_state_dict(torch.load('./res/model_final.pth', map_location='cpu'))
+    model.load_state_dict(sd, strict=True)
     model.cuda()
 
     batchsize = 256

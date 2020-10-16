@@ -34,9 +34,9 @@ from cross_entropy import (
 
 #  from config.pa_resnet50 import *
 #  from config.pa_resnet101 import *
-#  from config.resnet50 import *
+from config.resnet50 import *
 #  from config.resnet101 import *
-from config.askc_resnet101 import *
+#  from config.askc_resnet101 import *
 #  from config.se_resnet50 import *
 #  from config.se_pa_resnet50 import *
 #  from config.se_pa_resnet101 import *
@@ -234,8 +234,10 @@ def main():
             msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
             logger.info(msg)
     if dist.is_initialized() and dist.get_rank() == 0:
-        torch.save(model.module.state_dict(), './res/model_final_naive.pth')
-        torch.save(ema.ema_model.state_dict(), './res/model_final_ema.pth')
+        #  torch.save(model.module.state_dict(), './res/model_final_naive.pth')
+        #  torch.save(ema.ema_model.state_dict(), './res/model_final_ema.pth')
+        torch.save(model.module.get_states(), './res/model_final_naive.pth')
+        torch.save(ema.ema_model.get_states(), './res/model_final_ema.pth')
 
 
 def evaluate(ema, dl_eval):
