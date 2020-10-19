@@ -144,10 +144,25 @@ class EfficientNetStage(nn.Module):
         return self.layers(x)
 
 
+params_dict = {
+       # width,depth,res,dropout
+    'b0': (1.0, 1.0, 224, 0.2),
+    'b1': (1.0, 1.1, 240, 0.2),
+    'b2': (1.1, 1.2, 260, 0.3),
+    'b3': (1.2, 1.4, 300, 0.3),
+    'b4': (1.4, 1.8, 380, 0.4),
+    'b5': (1.6, 2.2, 456, 0.4),
+    'b6': (1.8, 2.6, 528, 0.5),
+    'b7': (2.0, 3.1, 600, 0.5),
+}
+
 class EfficientNetBackbone(nn.Module):
 
-    def __init__(self, r_width=1., r_depth=1.):
+    def __init__(self, model_type='b0'):
         super(EfficientNetBackbone, self).__init__()
+
+        assert model_type in params_dict
+        r_width, r_depth, _, _ = params_dict[model_type]
 
         out_chan_stem = round_channels(32, r_width)
         self.conv_stem = ConvBNAct(3, out_chan_stem, ks=3, padding=1, stride=2,)
@@ -159,8 +174,8 @@ class EfficientNetBackbone(nn.Module):
                 EfficientNetStage(i_chan, o_chan, ks, strd,
                 expand_ratio=exp, n_blocks=n_b, dc_ratios=dp_ratio)
             )
-        self.out_chan_head = round_channels(o_chan * 4, r_width)
-        self.conv_out = ConvBNAct(o_chan, self.out_chan_head, ks=1, stride=1, padding=0)
+        self.out_chans = (model_params[1][1], model_params[1][2],
+                model_params[1][4], model_params[1][6])
 
 
     def get_model_params(self, r_width=1., r_depth=1.):
@@ -197,142 +212,37 @@ class EfficientNetBackbone(nn.Module):
         feat5 = self.layer5(feat4) # feat16
         feat6 = self.layer6(feat5)
         feat7 = self.layer7(feat6)
-        feat8 = self.conv_out(feat7) # feat32
-        return feat0, feat1, feat2, feat3, feat4, feat5, feat6, feat7, feat8
+        return feat2, feat3, feat5, feat7
 
-#
-#  class EfficientNetBackbone(nn.Module):
-#
-#      def __init__(self, r_width=1., r_depth=1.):
-#          super(EfficientNetBackbone, self).__init__()
-#
-#          layers, self.n_chans = [], []
-#          out_chan_stem = round_channels(32, r_width)
-#          self.n_chans.append(out_chan_stem)
-#
-#          model_params = self.get_model_params(r_width, r_depth)
-#          for i in range(7):
-#              params = [el[i] for el in model_params]
-#              n_chan, blocks = 0, []
-#              for i_chan, o_chan, ks, stride, expand, drop_connect_ratio in zip(*params):
-#                  blocks.append(MBConv(
-#                      i_chan,
-#                      o_chan,
-#                      ks,
-#                      stride=stride,
-#                      expand_ratio=expand,
-#                      drop_connect_ratio=drop_connect_ratio,
-#                      se_ratio=0.25,
-#                      skip=True,)
-#                  )
-#                  n_chan = o_chan
-#              layers.append(blocks)
-#              self.n_chans.append(n_chan)
-#          out_chan_head = round_channels(self.n_chans[-1] * 4, r_width)
-#          self.n_chans.append(out_chan_head)
-#
-#          self.conv_stem = ConvBNAct(3, out_chan_stem, ks=3, padding=1, stride=2,)
-#          self.layer1 = nn.Sequential(*layers[0])
-#          self.layer2 = nn.Sequential(*layers[1])
-#          self.layer3 = nn.Sequential(*layers[2])
-#          self.layer4 = nn.Sequential(*layers[3])
-#          self.layer5 = nn.Sequential(*layers[4])
-#          self.layer6 = nn.Sequential(*layers[5])
-#          self.layer7 = nn.Sequential(*layers[6])
-#          self.conv_out = ConvBNAct(n_chan, out_chan_head, ks=1, stride=1, padding=0)
-#
-#
-#      def get_model_params(self, r_width=1., r_depth=1.):
-#          i_chans = [32, 16, 24, 40, 80, 112, 192]
-#          o_chans = [16, 24, 40, 80, 112, 192, 320]
-#          n_blocks = [1, 2, 2, 3, 3, 4, 1]
-#          kernel_sizes = [3, 3, 5, 3, 5, 5, 3]
-#          strides = [1, 2, 2, 2, 1, 2, 1]
-#          expands = [1, 6, 6, 6, 6, 6, 6]
-#
-#          dec_i_chans = []
-#          dec_o_chans = []
-#          dec_kernel_sizes = []
-#          dec_strides = []
-#          dec_expands = []
-#          n_counts = []
-#          for i in range(7):
-#              count = 1
-#              dec_i_chans.append([])
-#              dec_o_chans.append([])
-#              dec_kernel_sizes.append([])
-#              dec_strides.append([])
-#              dec_expands.append([])
-#              in_chan = round_channels(i_chans[i], r_width)
-#              out_chan = round_channels(o_chans[i], r_width)
-#              repeats = int(math.ceil(r_depth * n_blocks[i]))
-#              dec_i_chans[i].append(in_chan)
-#              dec_o_chans[i].append(out_chan)
-#              dec_kernel_sizes[i].append(kernel_sizes[i])
-#              dec_strides[i].append(strides[i])
-#              dec_expands[i].append(expands[i])
-#              for _ in range(repeats-1):
-#                  count += 1
-#                  dec_i_chans[i].append(out_chan)
-#                  dec_o_chans[i].append(out_chan)
-#                  dec_kernel_sizes[i].append(kernel_sizes[i])
-#                  dec_strides[i].append(1)
-#                  dec_expands[i].append(expands[i])
-#              n_counts.append(count)
-#          all_counts = sum(n_counts)
-#          all_drop_connect_ratios = [
-#              0.2 * float(idx) / all_counts for idx in range(all_counts)
-#          ]
-#          dec_drop_connect_ratios = []
-#          for idx, n in enumerate(n_counts):
-#              dec_drop_connect_ratios.append([])
-#              for i in range(n):
-#                  ratio = all_drop_connect_ratios.pop(0)
-#                  dec_drop_connect_ratios[idx].append(ratio)
-#          return (dec_i_chans, dec_o_chans, dec_kernel_sizes, dec_strides,
-#                  dec_expands, dec_drop_connect_ratios)
-#
-#      def forward(self, x):
-#          feat0 = self.conv_stem(x)
-#          feat1 = self.layer1(feat0)
-#          feat2 = self.layer2(feat1) # feat4
-#          feat3 = self.layer3(feat2) # feat8
-#          feat4 = self.layer4(feat3)
-#          feat5 = self.layer5(feat4) # feat16
-#          feat6 = self.layer6(feat5)
-#          feat7 = self.layer7(feat6)
-#          feat8 = self.conv_out(feat7) # feat32
-#          return feat0, feat1, feat2, feat3, feat4, feat5, feat6, feat7, feat8
-#
 
 class EfficientNet(nn.Module):
-    params_dict = {
-           # width,depth,res,dropout
-        'b0': (1.0, 1.0, 224, 0.2),
-        'b1': (1.0, 1.1, 240, 0.2),
-        'b2': (1.1, 1.2, 260, 0.3),
-        'b3': (1.2, 1.4, 300, 0.3),
-        'b4': (1.4, 1.8, 380, 0.4),
-        'b5': (1.6, 2.2, 456, 0.4),
-        'b6': (1.8, 2.6, 528, 0.5),
-        'b7': (2.0, 3.1, 600, 0.5),
-    }
 
     def __init__(self, model_type='b0', n_classes=1000):
         super(EfficientNet, self).__init__()
-        assert model_type in self.params_dict
-        r_width, r_depth, _, r_dropout = self.params_dict[model_type]
-        self.backbone = EfficientNetBackbone(r_width, r_depth)
-        n_chans = self.backbone.out_chan_head
+        assert model_type in params_dict
+        r_width, _, _, r_dropout = params_dict[model_type]
+
+        self.backbone = EfficientNetBackbone(model_type=model_type)
+        o_chan = self.backbone.out_chans[-1]
+        n_out_head_chan = round_channels(o_chan * 4, r_width)
+        self.conv_out = ConvBNAct(o_chan, n_out_head_chan, ks=1, stride=1, padding=0)
         self.dropout = nn.Dropout(r_dropout) if r_dropout > 0.0 else None
-        self.fc = nn.Linear(n_chans, n_classes, bias=True)
+        self.fc = nn.Linear(n_out_head_chan, n_classes, bias=True)
 
     def forward(self, x):
         feat = self.backbone(x)[-1]
+        feat = self.conv_out(feat)
         feat = torch.mean(feat, dim=(2, 3))
         feat = self.dropout(feat) if not self.dropout is None else feat
         logits = self.fc(feat)
         return logits
+
+    def get_states(self):
+        state = {name: child.state_dict() for name, child in self.named_children()}
+        #  state = dict(
+        #      backbone=self.backbone.state_dict(),
+        #      classifier=self.classifier.state_dict())
+        return state
 
 
 
@@ -348,19 +258,19 @@ if __name__ == '__main__':
     backbone = EfficientNetBackbone()
     backbone.cuda()
     feat4, feat8, feat16, feat32 =  backbone(inten)
-    #  print(feat4.size())
-    #  print(feat8.size())
-    #  print(feat16.size())
-    #  print(feat32.size())
+    print(feat4.size())
+    print(feat8.size())
+    print(feat16.size())
+    print(feat32.size())
     #  #  print(backbone)
     #  print(backbone.n_chans)
 
-    model = EfficientNet(model_type='b7', n_classes=1000)
-    #  print(model)
-    model.cuda()
-    model.eval()
-    logits = model(inten)
-    print(logits.size())
+    #  model = EfficientNet(model_type='b7', n_classes=1000)
+    #  #  #  print(model)
+    #  model.cuda()
+    #  #  model.eval()
+    #  logits = model(inten)
+    #  print(logits.size())
 
     #  inten = torch.randn(4, 3, 5, 5).cuda()
     #  print(inten)

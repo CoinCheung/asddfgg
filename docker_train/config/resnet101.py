@@ -9,7 +9,7 @@ opt_args = dict(
         weight_decay=1e-4, nesterov=True, momentum=0.9)
 schdlr_type = 'CosineLr'
 schdlr_args = dict(
-        max_iter=n_epoches, eta_ratio=0,
+        max_iter=n_epoches, eta_ratio=0.,
         warmup_iter=5, warmup='linear', warmup_ratio=0.05)
 model_args = dict(model_type='resnet-101', n_classes=1000)
 grad_clip_norm = 10

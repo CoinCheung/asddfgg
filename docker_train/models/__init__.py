@@ -10,6 +10,9 @@ def build_model(model_type, n_classes):
         mtype = model_type.split('-')[1]
         model = EfficientNet(mtype, n_classes)
 
+    elif model_type == 'ushape-effnet-b0':
+        model = UShapeEffNetB0ClassificationWrapper(n_classes)
+
     elif model_type == 'resnet-50':
         model = ResNet(n_classes=n_classes)
     elif model_type == 'resnet-101':
@@ -34,7 +37,4 @@ def build_model(model_type, n_classes):
         model = ASKCResNet(n_classes=n_classes)
     elif model_type == 'askc-resnet-101':
         model = ASKCResNet(n_layers=101, n_classes=n_classes)
-
-    elif model_type == 'ushape-effnet-b0':
-        model = UShapeEffNetB0ClassificationWrapper(n_classes)
     return model

@@ -361,7 +361,9 @@ done 单弄一个resnet-base文件吧，里面是bottleneckv1/v2, create_layer�
 然后都改成保存的时候保存一个backbone的state_dict，再保存一个model的:
 
 model_zoo:
-r50:
+effnet-b0: 76.03/92.84/75.96/92.78
+effnet-b0+ra+200ep:
+r50: 77.19/93.66/76.72/93.49
 r101:
 se-r50:
 se-r101:
