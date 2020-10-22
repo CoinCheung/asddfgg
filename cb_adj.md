@@ -223,6 +223,29 @@ lbsmooth + cutmix:  78.58/94.30/78.77/94.37
 200ep: lbsmooth + mixup:
 200ep: lbsmooth + cutmix:
 
+
+======
+model_zoo:
+effnet-b0: 76.03/92.84/75.96/92.78
+effnet-b0-bn0: 76.02/92.95/75.75/92.83
+effnet-b0+ra+200ep: 76.84/93.34/76.91/93.34
+effnet-b2:
+r50: 77.19/93.66/76.72/93.49
+weight_align_r50:
+weight_align_r101:
+r50使用hs-r50的300ep训练方法:
+hs-r50:
+r101:
+se-r50:
+se-r101:
+pa-r50:
+pa-r101:
+pa-se-r50:
+pa-se-r101:
+dynamic-conv-r50:
+
+
+
 改成data和datasets分开的
 
 结论: 
@@ -359,18 +382,6 @@ resnet和 resnet-slim分开的，不一定分文件，但是使用两个类
 done 单弄一个resnet-base文件吧，里面是bottleneckv1/v2, create_layer啥的，然后把其他的单拿出来
 都完事了之后，弄一个hub,把自己的权重都推上去
 然后都改成保存的时候保存一个backbone的state_dict，再保存一个model的:
-
-model_zoo:
-effnet-b0: 76.03/92.84/75.96/92.78
-effnet-b0+ra+200ep:
-r50: 77.19/93.66/76.72/93.49
-r101:
-se-r50:
-se-r101:
-pa-r50:
-pa-r101:
-pa-se-r50:
-pa-se-r101:
 
 ====
 617:

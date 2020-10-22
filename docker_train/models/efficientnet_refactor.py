@@ -164,6 +164,7 @@ class EfficientNetBackbone(nn.Module):
         assert model_type in params_dict
         r_width, r_depth, _, _ = params_dict[model_type]
 
+        #  self.bn0 = nn.BatchNorm2d(3)
         out_chan_stem = round_channels(32, r_width)
         self.conv_stem = ConvBNAct(3, out_chan_stem, ks=3, padding=1, stride=2,)
 
@@ -204,6 +205,7 @@ class EfficientNetBackbone(nn.Module):
 
 
     def forward(self, x):
+        #  x = self.bn0(x)
         feat0 = self.conv_stem(x)
         feat1 = self.layer1(feat0)
         feat2 = self.layer2(feat1) # feat4
