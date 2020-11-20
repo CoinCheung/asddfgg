@@ -1,8 +1,7 @@
 
-n_gpus = 8
-batchsize = 64
-#  n_epoches = 100
-n_epoches = 350
+n_gpus = 6
+batchsize = 32
+n_epoches = 100
 n_eval_epoch = 1
 opt_type = 'SGD'
 opt_args = dict(
@@ -13,9 +12,9 @@ schdlr_args = dict(
         max_iter=n_epoches, eta_ratio=0.,
         warmup_iter=5, warmup='linear', warmup_ratio=0.05)
 grad_clip_norm = 10
-model_args = dict(model_type='effcientnet-b2', n_classes=1000)
+model_args = dict(model_type='effcientnet-b4', n_classes=1000)
 datapth = './imagenet/'
-cropsize = 260
+cropsize = 380
 num_workers = 4
 ema_alpha = 0.9999
 use_mixed_precision = True

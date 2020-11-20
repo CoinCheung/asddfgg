@@ -10,7 +10,10 @@ from imagenet.imagenet_cv2 import ImageNet
 
 #  from config.effnetb1 import *
 from config.resnet101 import *
+#  from config.frelu_resnet101 import *
 
+
+ckpt_path = './res/pretrained/model_final_ema_r101.pth'
 
 def evaluate(model, dl_eval):
     acc_1, acc_5 = eval_model(model, dl_eval)
@@ -51,14 +54,15 @@ def main():
     #  model = ResNet50()
     #  model = EfficientNet(model_type, n_classes)
     model = build_model(**model_args)
-    sd = torch.load('./res/model_final_ema_r101.pth', map_location='cpu')
+    sd = torch.load(ckpt_path, map_location='cpu')
     #  new_sd = {}
     #  for k, v in sd.items():
     #      k = k.replace('module.', '')
     #      new_sd[k] = v
     #  model.load_state_dict(new_sd)
     #  model.load_state_dict(torch.load('./res/model_final.pth', map_location='cpu'))
-    model.load_state_dict(sd, strict=True)
+    #  model.load_state_dict(sd, strict=True)
+    model.load_states(sd)
     model.cuda()
 
     batchsize = 256

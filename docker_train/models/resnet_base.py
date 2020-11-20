@@ -7,7 +7,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch.nn import Conv2d
-#  from .conv_ops import Conv2dWS as Conv2d
+from .conv_ops import build_conv
+
+from pytorch_loss import FReLU
+
 
 
 def init_weight(model):
@@ -18,14 +21,24 @@ def init_weight(model):
             if not md.bias is None: nn.init.constant_(md.bias, 0)
 
 
+def build_act(act_type, chan):
+    if act_type == 'relu':
+        act = nn.ReLU(inplace=True)
+    elif act_type == 'frelu':
+        act = FReLU(chan)
+    return act
+
+
 class SEBlock(nn.Module):
 
-    def __init__(self, in_chan, ratio, min_chan=8):
+    def __init__(self, in_chan, ratio, min_chan=8, conv_type='nn'):
         super(SEBlock, self).__init__()
         mid_chan = in_chan // 8
         if mid_chan < min_chan: mid_chan = min_chan
-        self.conv1 = nn.Conv2d(in_chan, mid_chan, 1, 1, 0, bias=True)
-        self.conv2 = nn.Conv2d(mid_chan, in_chan, 1, 1, 0, bias=True)
+        #  self.conv1 = nn.Conv2d(in_chan, mid_chan, 1, 1, 0, bias=True)
+        #  self.conv2 = nn.Conv2d(mid_chan, in_chan, 1, 1, 0, bias=True)
+        self.conv1 = build_conv(conv_type, in_chan, mid_chan, 1, 1, 0, bias=True)
+        self.conv2 = build_conv(conv_type, mid_chan, in_chan, 1, 1, 0, bias=True)
 
     def forward(self, x):
         att = torch.mean(x, dim=(2, 3), keepdims=True)
@@ -134,6 +147,8 @@ class Bottleneck(nn.Module):
                  stride=1,
                  stride_at_1x1=False,
                  dilation=1,
+                 conv_type='nn',
+                 act_type='relu',
                  use_se=False,
                  use_askc=False):
         super(Bottleneck, self).__init__()
@@ -142,13 +157,17 @@ class Bottleneck(nn.Module):
         assert out_chan % 4 == 0
         mid_chan = out_chan // 4
 
-        self.conv1 = Conv2d(in_chan,
+        self.conv1 = build_conv(conv_type, in_chan,
+        #  self.conv1 = Conv2d(in_chan,
                             mid_chan,
                             kernel_size=1,
                             stride=stride1x1,
                             bias=False)
         self.bn1 = nn.BatchNorm2d(mid_chan)
-        self.conv2 = Conv2d(mid_chan,
+        #  self.relu1 = FReLU(mid_chan)
+        self.relu1 = build_act(act_type, mid_chan)
+        #  self.conv2 = Conv2d(mid_chan,
+        self.conv2 = build_conv(conv_type, mid_chan,
                             mid_chan,
                             kernel_size=3,
                             stride=stride3x3,
@@ -156,22 +175,28 @@ class Bottleneck(nn.Module):
                             dilation=dilation,
                             bias=False)
         self.bn2 = nn.BatchNorm2d(mid_chan)
-        self.conv3 = Conv2d(mid_chan,
+        #  self.relu2 = FReLU(mid_chan)
+        self.relu2 = build_act(act_type, mid_chan)
+        #  self.conv3 = Conv2d(mid_chan,
+        self.conv3 = build_conv(conv_type, mid_chan,
                             out_chan,
                             kernel_size=1,
                             bias=False)
         self.bn3 = nn.BatchNorm2d(out_chan)
         self.bn3.last_bn = True if not use_se else False
-        self.relu = nn.ReLU(inplace=True)
+        #  self.relu = nn.ReLU(inplace=True)
+        self.relu3 = build_act(act_type, out_chan)
+        #  self.relu3 = FReLU(out_chan)
 
         self.use_se = use_se
         if use_se:
-            self.se_att = SEBlock(out_chan, 16)
+            self.se_att = SEBlock(out_chan, 16, conv_type=conv_type)
 
         self.downsample = None
         if in_chan != out_chan or stride != 1:
             self.downsample = nn.Sequential(
-                Conv2d(in_chan, out_chan, kernel_size=1, stride=stride, bias=False),
+                #  Conv2d(in_chan, out_chan, kernel_size=1, stride=stride, bias=False),
+                build_conv(conv_type, in_chan, out_chan, kernel_size=1, stride=stride, bias=False),
                 nn.BatchNorm2d(out_chan)
             )
 
@@ -183,10 +208,11 @@ class Bottleneck(nn.Module):
     def forward(self, x):
         residual = self.conv1(x)
         residual = self.bn1(residual)
-        residual = F.relu(residual, inplace=True)
+        #  residual = F.relu(residual, inplace=True)
+        residual = self.relu1(residual)
         residual = self.conv2(residual)
         residual = self.bn2(residual)
-        residual = F.relu(residual, inplace=True)
+        residual = self.relu2(residual)
         residual = self.conv3(residual)
         residual = self.bn3(residual)
 
@@ -202,7 +228,8 @@ class Bottleneck(nn.Module):
         else:
             out = residual + inten
 
-        out = self.relu(out)
+        #  out = self.relu(out)
+        out = self.relu3(out)
         return out
 
 
@@ -288,13 +315,15 @@ class PABottleneck(nn.Module):
 
 
 def create_stage(in_chan, out_chan, b_num, stride=1, dilation=1,
-            use_se=False, use_askc=False):
+            use_se=False, use_askc=False, conv_type='nn', act_type='relu'):
     assert out_chan % 4 == 0
     blocks = [Bottleneck(in_chan, out_chan, stride=stride, dilation=dilation,
-                use_se=use_se, use_askc=use_askc),]
+                use_se=use_se, use_askc=use_askc,
+                conv_type=conv_type, act_type=act_type),]
     for i in range(1, b_num):
         blocks.append(Bottleneck(out_chan, out_chan, stride=1,
-                    dilation=dilation, use_se=use_se, use_askc=use_askc))
+                    dilation=dilation, use_se=use_se, use_askc=use_askc,
+                    conv_type=conv_type, act_type=act_type))
     return nn.Sequential(*blocks)
 
 
@@ -312,7 +341,7 @@ def create_stage_pa(in_chan, out_chan, b_num, stride=1, dilation=1,
 
 class ResNetBackboneBase(nn.Module):
 
-    def __init__(self, n_layers=50, stride=32, use_se=False, use_askc=False):
+    def __init__(self, n_layers=50, stride=32, use_se=False, use_askc=False, conv_type='nn', act_type='relu'):
         super(ResNetBackboneBase, self).__init__()
         assert stride in (8, 16, 32)
         dils = [1, 1] if stride == 32 else [el*(16//stride) for el in (1, 2)]
@@ -325,24 +354,28 @@ class ResNetBackboneBase(nn.Module):
             raise NotImplementedError
 
         self.bn0 = nn.BatchNorm2d(3)
-        self.conv1 = Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        #  self.conv1 = Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = build_conv(conv_type, 3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
+        #  self.relu = nn.ReLU(inplace=True)
+        self.relu = build_act(act_type, chan=64)
+        #  self.relu = FReLU(64)
         self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1,
                 dilation=1, ceil_mode=False)
         self.layer1 = create_stage(64, 256, layers[0], stride=1, dilation=1,
                     use_se=use_se,
-                    use_askc=use_askc)
+                    use_askc=use_askc, conv_type=conv_type, act_type=act_type)
         self.layer2 = create_stage(256, 512, layers[1], stride=2, dilation=1,
                     use_se=use_se,
-                    use_askc=use_askc)
+                    use_askc=use_askc, conv_type=conv_type, act_type=act_type)
         self.layer3 = create_stage(512, 1024, layers[2], stride=strds[0],
                     dilation=dils[0],
                     use_se=use_se,
-                    use_askc=use_askc)
+                    use_askc=use_askc, conv_type=conv_type, act_type=act_type)
         self.layer4 = create_stage(1024, 2048, layers[3], stride=strds[1],
                     dilation=dils[1],
                     use_se=use_se,
-                    use_askc=use_askc)
+                    use_askc=use_askc, conv_type=conv_type, act_type=act_type)
 
         #  init_weight(self)
         self.layers = []
@@ -353,7 +386,7 @@ class ResNetBackboneBase(nn.Module):
         x = self.bn0(x)
         x = self.conv1(x)
         x = self.bn1(x)
-        x = F.relu(x, inplace=True)
+        x = self.relu(x)
         x = self.maxpool(x)
         feat4 = self.layer1(x)
         feat8 = self.layer2(feat4)
@@ -391,6 +424,10 @@ class ResNetBase(nn.Module):
             backbone=self.backbone.state_dict(),
             classifier=self.classifier.state_dict())
         return state
+
+    def load_states(self, state):
+        self.backbone.load_state_dict(state['backbone'])
+        self.classifier.load_state_dict(state['classifier'])
 
 
 

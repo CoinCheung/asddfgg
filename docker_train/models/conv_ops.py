@@ -5,6 +5,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+import functools
+
 #  from torch.nn import Conv2d as Conv2dWS
 #  from torch.nn import Conv2d as SphereConv2d
 
@@ -300,3 +302,92 @@ class NormConv2d(nn.Conv2d):
         norm = weight.norm(2, dim=(1, 2, 3), keepdim=True)
         weight = weight / (norm + self.eps)
         return weight
+
+
+
+
+## Weight Align
+class Conv2dWA(nn.Conv2d):
+
+    def __init__(self,
+                 in_chan,
+                 out_chan,
+                 kernel_size,
+                 stride=1,
+                 padding=0,
+                 dilation=1,
+                 groups=1,
+                 bias=True,
+                 eps=1e-5
+                ):
+        super(Conv2dWA, self).__init__(
+            in_chan,
+            out_chan,
+            kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            groups=groups,
+            bias=bias)
+        self.std_eps = eps
+        self.gamma = nn.Parameter(torch.randn(out_chan, 1, 1, 1))
+        n = functools.reduce((lambda x, y: x * y), self.weight.size())
+        self.const = (2 / n) ** 0.5
+
+    def forward(self, x):
+        weight = self.get_weight()
+        return F.conv2d(x,
+                        weight,
+                        self.bias,
+                        self.stride,
+                        self.padding,
+                        self.dilation,
+                        self.groups)
+
+    def get_weight(self):
+        N, _, _, _ = self.weight.size()
+        weight = self.weight
+        mean = weight.mean(dim=(1, 2, 3), keepdim=True)
+        weight = weight - mean
+        std = weight.std(dim=(1, 2, 3), keepdim=True)
+        weight = torch.div(weight, std) * self.const * self.gamma + self.std_eps
+        return weight
+
+    def init_weight(self):
+        nn.init.normal_(0, self.const)
+
+    def _save_to_state_dict(self, destination, prefix, keep_vars):
+        r"""Saves module state to `destination` dictionary, containing a state
+        of the module, but not its descendants. This is called on every
+        submodule in :meth:`~torch.nn.Module.state_dict`.
+
+        In rare cases, subclasses can achieve class-specific behavior by
+        overriding this method with custom logic.
+
+        Arguments:
+            destination (dict): a dict where state will be stored
+            prefix (str): the prefix for parameters and buffers used in this
+                module
+        """
+        for name, param in self._parameters.items():
+            if param is not None:
+                if name == 'weight':
+                    param = self.get_weight()
+                destination[prefix + name] = param if keep_vars else param.data
+        for name, buf in self._buffers.items():
+            if buf is not None:
+                destination[prefix + name] = buf if keep_vars else buf.data
+
+
+def build_conv(conv_type, in_chan, out_chan, kernel_size,
+               stride=1, padding=0, dilation=1, groups=1,
+               bias=True, **kwargs):
+    if conv_type == 'nn':
+        conv = nn.Conv2d(in_chan, out_chan, kernel_size, stride=stride,
+                padding=padding, dilation=dilation, groups=groups,
+                bias=bias)
+    if conv_type == 'wa':
+        conv = Conv2dWA(in_chan, out_chan, kernel_size, stride=stride,
+                padding=padding, dilation=dilation, groups=groups,
+                bias=bias, **kwargs)
+    return conv

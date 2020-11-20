@@ -62,6 +62,39 @@ class ASKCResNet(ResNetBase):
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
 
+## weight-align-resnet-v1
+class WAResNetBackbone(ResNetBackboneBase):
+
+    def __init__(self, n_layers=50, stride=32):
+        super(WAResNetBackbone, self).__init__(
+                n_layers=n_layers, stride=stride, use_askc=False, conv_type='wa')
+
+
+class WAResNet(ResNetBase):
+
+    def __init__(self, n_layers=50, stride=32, n_classes=1000):
+        super(WAResNet, self).__init__()
+        self.backbone = WAResNetBackbone(n_layers, stride)
+        self.classifier = nn.Linear(2048, n_classes, bias=True)
+
+
+## frelu-resnet-v1
+class FReLUResNetBackbone(ResNetBackboneBase):
+
+    def __init__(self, n_layers=50, stride=32):
+        super(FReLUResNetBackbone, self).__init__(
+                n_layers=n_layers, stride=stride, use_askc=False, conv_type='nn',
+                act_type='frelu')
+
+
+class FReLUResNet(ResNetBase):
+
+    def __init__(self, n_layers=50, stride=32, n_classes=1000):
+        super(FReLUResNet, self).__init__()
+        self.backbone = FReLUResNetBackbone(n_layers, stride)
+        self.classifier = nn.Linear(2048, n_classes, bias=True)
+
+
 ## resnet-v2
 class PAResNetBackbone(PAResNetBackBoneBase):
 

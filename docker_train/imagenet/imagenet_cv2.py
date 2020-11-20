@@ -21,7 +21,7 @@ class ImageNet(Dataset):
         self.cropsize = cropsize
         if mode == 'train':
             txtpth = osp.join(root, 'train.txt')
-            img_root_pth = osp.join(root, 'data', 'train')
+            img_root_pth = osp.join(root, 'train')
             with open(txtpth, 'r') as fr:
                 lines = fr.read().splitlines()
             for line in lines:
@@ -30,7 +30,7 @@ class ImageNet(Dataset):
                 self.samples.append((pth, lb))
         elif mode == 'val':
             txtpth = osp.join(root, 'val.txt')
-            img_root_pth = osp.join(root, 'data', 'val')
+            img_root_pth = osp.join(root, 'val')
             with open(txtpth, 'r') as fr:
                 lines = fr.read().splitlines()
             for line in lines:
@@ -41,7 +41,7 @@ class ImageNet(Dataset):
         self.trans_train = T.Compose([
             T.RandomResizedCrop(cropsize),
             T.RandomHorizontalFlip(),
-            #  RandomAugment(2, 9),
+            RandomAugment(2, 9),
             T.ToTensor(),
             T.PCANoise(0.1),
             T.Normalize(img_mean, img_std)

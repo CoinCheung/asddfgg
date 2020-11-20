@@ -224,26 +224,44 @@ lbsmooth + cutmix:  78.58/94.30/78.77/94.37
 200ep: lbsmooth + cutmix:
 
 
+r50，看先relu再bn, bottleneck不变: 77.05/93.40/77.06/93.43
+r50，看先relu再bn, bottleneck改成两个分枝先相加再relu，再bn, shortcut去掉bn: 不收敛 -- 这个最省内存6529M
+r50，看先relu再bn, bottleneck改成两个分枝先相加再relu，再bn, shortcut加上bn: 不收敛 -- 这个最省内存7121M
+r50，看先relu再bn, bottleneck改成两先relu再相加再bn : 不收敛 -- 内存为8733M
+r50，看先relu再bn, bottleneck改成两先relu-bn再相加 -- 没必要
+r50，看先relu再bn，第一个conv-bn-relu-maxpool改成conv-relu-maxpool-bn是否能行?  内存是7013M
+能不能像mbconv那样，去掉带conv的shortcut，然后去掉最后的act
+
 ======
 model_zoo:
 effnet-b0: 76.03/92.84/75.96/92.78
 effnet-b0-bn0: 76.02/92.95/75.75/92.83
 effnet-b0+ra+200ep: 76.84/93.34/76.91/93.34
-effnet-b2:
+effnet-b2: 78.66/94.41/78.69/94.38 -- 目标是79.8
+effnet-b2-lite: 77.69/93.86/77.65/93.85 
+再来effnet-b2: 78.79/94.26/78.77/94.28  -- 差不多，这个不保存
+effnet-b0-lite: 74.64/92.08/74.62/92.07
+effnet-b4: 81.04/95.57/81.08/95.59 -- pycls(78.4), official(82.5)
+effnet-b6:
 r50: 77.19/93.66/76.72/93.49
-weight_align_r50:
-weight_align_r101:
-r50使用hs-r50的300ep训练方法:
-hs-r50:
-r101:
+r101:78.50/94.33/78.43/94.42
+r101+frelu: 78.88/94.35/79.06/94.54
+pa-r50: 76.93/93.47/76.69/93.43
+pa-r101: 78.37/94.11/78.04/94.11
 se-r50:
 se-r101:
-pa-r50:
-pa-r101:
 pa-se-r50:
 pa-se-r101:
 dynamic-conv-r50:
 
+把effnet的fc改名成classifier，统一一下: 
+
+改成自动根据gpu数来调学习率的
+
+weight_align_r50: discard
+weight_align_r101: 80ep后top1到70，然后loss变成nan
+r50使用hs-r50的300ep训练方法:
+hs-r50:
 
 
 改成data和datasets分开的

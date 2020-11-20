@@ -85,7 +85,7 @@ class SEBlock(nn.Module):
 
 class MBConv(nn.Module):
 
-    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1, se_ratio=0.25, skip=True, drop_connect_ratio=0.2):
+    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1, skip=True, drop_connect_ratio=0.2):
         super(MBConv, self).__init__()
         assert ks in (3, 5, 7)
 
@@ -97,11 +97,6 @@ class MBConv(nn.Module):
         # depthwise conv
         n_pad = (ks - 1) // 2
         self.dw_conv = ConvBNAct(exp_chan, exp_chan, ks, stride, n_pad, groups=exp_chan)
-        # se-attention
-        self.se_block = None
-        if se_ratio != 0:
-            se_chan = max(1, int(se_ratio * in_chan))
-            self.se_block = SEBlock(exp_chan, se_chan)
         # project conv
         self.proj_conv = nn.Sequential(
             nn.Conv2d(exp_chan, out_chan, kernel_size=1, bias=False),
@@ -116,8 +111,6 @@ class MBConv(nn.Module):
         if not self.exp_conv is None:
             feat = self.exp_conv(feat)
         feat = self.dw_conv(feat)
-        if not self.se_block is None:
-            feat = self.se_block(feat)
         feat = self.proj_conv(feat)
 
         if self.skip:
@@ -126,16 +119,16 @@ class MBConv(nn.Module):
         return feat
 
 
-class EfficientNetStage(nn.Module):
+class EfficientNetLiteStage(nn.Module):
 
     def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1, se_ratio=0.25, n_blocks=1, dc_ratios=[0, ]):
-        super(EfficientNetStage, self).__init__()
+        super(EfficientNetLiteStage, self).__init__()
         layers = []
         for i in range(n_blocks):
             b_stride = stride if i == 0 else 1
             b_in_chan = in_chan if i == 0 else out_chan
             layers.append(MBConv(b_in_chan, out_chan, ks, stride=b_stride,
-                expand_ratio=expand_ratio, se_ratio=se_ratio,
+                expand_ratio=expand_ratio,
                 drop_connect_ratio=dc_ratios[i])
             )
         self.layers = nn.Sequential(*layers)
@@ -156,10 +149,10 @@ params_dict = {
     'b7': (2.0, 3.1, 600, 0.5),
 }
 
-class EfficientNetBackbone(nn.Module):
+class EfficientNetLiteBackbone(nn.Module):
 
     def __init__(self, model_type='b0'):
-        super(EfficientNetBackbone, self).__init__()
+        super(EfficientNetLiteBackbone, self).__init__()
 
         assert model_type in params_dict
         r_width, r_depth, _, _ = params_dict[model_type]
@@ -172,7 +165,7 @@ class EfficientNetBackbone(nn.Module):
         for i, param in enumerate(zip(*model_params)):
             i_chan, o_chan, ks, strd, exp, n_b, dp_ratio = param
             self.add_module('layer{}'.format(i+1),
-                EfficientNetStage(i_chan, o_chan, ks, strd,
+                EfficientNetLiteStage(i_chan, o_chan, ks, strd,
                 expand_ratio=exp, n_blocks=n_b, dc_ratios=dp_ratio)
             )
         self.out_chans = (model_params[1][1], model_params[1][2],
@@ -221,14 +214,14 @@ class EfficientNetBackbone(nn.Module):
         self.load_state_dict(state['backbone'], strict=True)
 
 
-class EfficientNet(nn.Module):
+class EfficientNetLite(nn.Module):
 
     def __init__(self, model_type='b0', n_classes=1000):
-        super(EfficientNet, self).__init__()
+        super(EfficientNetLite, self).__init__()
         assert model_type in params_dict
         r_width, _, _, r_dropout = params_dict[model_type]
 
-        self.backbone = EfficientNetBackbone(model_type=model_type)
+        self.backbone = EfficientNetLiteBackbone(model_type=model_type)
         o_chan = self.backbone.out_chans[-1]
         n_out_head_chan = round_channels(o_chan * 4, r_width)
         self.conv_out = ConvBNAct(o_chan, n_out_head_chan, ks=1, stride=1, padding=0)

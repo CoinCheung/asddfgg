@@ -36,14 +36,20 @@ from cross_entropy import (
 #  from config.pa_resnet101 import *
 #  from config.resnet50 import *
 #  from config.resnet101 import *
+from config.frelu_resnet101 import *
+#  from config.wa_resnet50 import *
 #  from config.askc_resnet101 import *
 #  from config.se_resnet50 import *
 #  from config.se_pa_resnet50 import *
 #  from config.se_pa_resnet101 import *
 
 #  from config.effnetb0 import *
+#  from config.effnetb0_lite import *
 #  from config.effnetb1 import *
-from config.effnetb2 import *
+#  from config.effnetb2 import *
+#  from config.effnetb2_lite import *
+#  from config.effnetb4 import *
+#  from config.effnetb6 import *
 #  from config.ushape_effnetb0 import *
 
 
@@ -66,27 +72,6 @@ torch.backends.cudnn.benchmark = True
 #  torch.multiprocessing.set_sharing_strategy('file_system') # this would make it stuck when program is done
 
 
-def init_model_weights(model):
-    for name, module in model.named_modules():
-        if isinstance(module, nn.Conv2d):
-            fan_out = module.kernel_size[0] * module.kernel_size[1] * module.out_channels
-            module.weight.data.normal_(0, math.sqrt(2.0 / fan_out))
-            #  nn.init.kaiming_normal_(module.weight, mode='fan_out')
-            if not module.bias is None: nn.init.constant_(module.bias, 0)
-        elif isinstance(module, nn.modules.batchnorm._BatchNorm):
-            if hasattr(module, 'last_bn') and module.last_bn:
-                nn.init.zeros_(module.weight)
-            else:
-                nn.init.ones_(module.weight)
-            nn.init.zeros_(module.bias)
-        elif isinstance(module, nn.Linear):
-            fan_out = module.weight.size(0)  # fan-out
-            fan_in = 0
-            init_range = 1.0 / math.sqrt(fan_in + fan_out)
-            #  module.weight.data.uniform_(-init_range, init_range)
-            module.weight.data.normal_(mean=0.0, std=0.01)
-            #  nn.init.xavier_uniform_(module.weight)
-            nn.init.constant_(module.bias, 0)
 
 
 def cal_l2_loss(model, weight_decay):
@@ -156,9 +141,7 @@ def main():
 
 
     ## model
-    #  model = EfficientNet(model_type, n_classes)
     model = build_model(**model_args)
-    init_model_weights(model)
     model.cuda()
 
     ## sync bn
