@@ -32,6 +32,8 @@ from cross_entropy import (
     )
 
 
+#  from config.spinenet49 import *
+#  from config.spinenet49s import *
 #  from config.pa_resnet50 import *
 #  from config.pa_resnet101 import *
 #  from config.resnet50 import *
