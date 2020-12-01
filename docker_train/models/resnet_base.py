@@ -385,9 +385,9 @@ class ResNetBackboneBase(nn.Module):
     def forward(self, x):
         x = self.bn0(x)
         x = self.conv1(x)
+        x = self.maxpool(x)
         x = self.bn1(x)
         x = self.relu(x)
-        x = self.maxpool(x)
         feat4 = self.layer1(x)
         feat8 = self.layer2(feat4)
         feat16 = self.layer3(feat8)

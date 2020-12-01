@@ -7,6 +7,8 @@ from .efficientnet_lite import EfficientNetLite
 from .resnet import (ResNet, SEResNet, ASKCResNet, PAResNet, SE_PAResNet,
         WAResNet, FReLUResNet)
 from .ushape_effnet import UShapeEffNetB0ClassificationWrapper
+from .xception_v2 import Xception41, Xception65, Xception71, Xception
+from .spinenet import SpineNetClassificationWrapper
 
 
 def build_model(model_type, n_classes):
@@ -18,8 +20,16 @@ def build_model(model_type, n_classes):
         mtype = model_type.split('-')[-1]
         model = EfficientNetLite(mtype, n_classes)
 
+    elif model_type.startswith('spinenet'):
+        mtype = model_type.split('-')[-1]
+        model = SpineNetClassificationWrapper(mtype, n_classes)
+
     elif model_type == 'ushape-effnet-b0':
         model = UShapeEffNetB0ClassificationWrapper(n_classes)
+
+    elif model_type.startswith('xception'):
+        mtype = model_type.split('-')[-1]
+        model = Xception(n_layers=mtype, n_classes=n_classes)
 
     elif model_type == 'resnet-50':
         model = ResNet(n_classes=n_classes)

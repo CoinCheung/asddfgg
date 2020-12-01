@@ -229,8 +229,26 @@ r50，看先relu再bn, bottleneck改成两个分枝先相加再relu，再bn, sho
 r50，看先relu再bn, bottleneck改成两个分枝先相加再relu，再bn, shortcut加上bn: 不收敛 -- 这个最省内存7121M
 r50，看先relu再bn, bottleneck改成两先relu再相加再bn : 不收敛 -- 内存为8733M
 r50，看先relu再bn, bottleneck改成两先relu-bn再相加 -- 没必要
-r50，看先relu再bn，第一个conv-bn-relu-maxpool改成conv-relu-maxpool-bn是否能行?  内存是7013M
+r50，看先relu再bn，第一个conv-bn-relu-maxpool改成conv-relu-maxpool-bn: 77.06/93.48/77.08/93.50 --  内存是7013M
 能不能像mbconv那样，去掉带conv的shortcut，然后去掉最后的act
+
+
+===
+关于frelu-r101: 
+    eval时间比r101的4m43s多一些，大概是6m9s，内存也多,从4400M到6000M，但是参数量的话，从171M到174M
+
+    关于训练时: 
+        r101内存5949M-101s, 
+        frelu内存11589M-174s,
+        frelu+conv-max-pool-bn-relu内存11445M-171s:
+
+关于dropblock: 看resnet是否应该像tpu里面那样，在shortcut的地方加上dropblock，是否应该加上drop-connect
+
+spinenet-49s-100ep: 73.18/91.59/73.18/91.59
+spinenet-49s-200ep: 74.48/92.10/74.50/92.15
+spinenet-49-200ep: 77.38/93.72/77.51/93.74
+目标是49: 77/93.3
+
 
 ======
 model_zoo:
@@ -246,6 +264,7 @@ effnet-b6:
 r50: 77.19/93.66/76.72/93.49
 r101:78.50/94.33/78.43/94.42
 r101+frelu: 78.88/94.35/79.06/94.54
+r101, frelu, conv-maxpool-bn-relu: 78.71/94.26/79.16/94.4 -- 上次跑到这了
 pa-r50: 76.93/93.47/76.69/93.43
 pa-r101: 78.37/94.11/78.04/94.11
 se-r50:
@@ -253,6 +272,9 @@ se-r101:
 pa-se-r50:
 pa-se-r101:
 dynamic-conv-r50:
+xception-41(deeplab): 80.50/95.20/80.54/95.23 -- 目标是79.55/94.33
+xception-65(deeplab): -- 目标是80.32/94.49
+xception-71(deeplab):
 
 把effnet的fc改名成classifier，统一一下: 
 
