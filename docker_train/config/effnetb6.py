@@ -12,7 +12,7 @@ schdlr_args = dict(
         max_iter=n_epoches, eta_ratio=0.,
         warmup_iter=5, warmup='linear', warmup_ratio=0.05)
 grad_clip_norm = 10
-model_args = dict(model_type='effcientnet-b6', n_classes=1000)
+model_args = dict(model_type='effcientnet-b6_sepconv', n_classes=1000)
 datapth = './imagenet/'
 cropsize = 260
 num_workers = 4
