@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from .efficientnet import EfficientNetBackbone
+from .efficientnet_refactor import EfficientNetBackbone
 #  from models.efficientnet import EfficientNetBackbone
 
 
@@ -90,7 +90,7 @@ class OutputModule(nn.Module):
 
 class PyramidModule(nn.Module):
 
-    def __init__(self, n_chan32=1280, n_chan16=112, n_chan8=40, mid_chan=256):
+    def __init__(self, n_chan32=320, n_chan16=112, n_chan8=40, mid_chan=256):
         #TODO: see conv should be 311 or 110
         super(PyramidModule, self).__init__()
         self.conv_gap = ConvBlock(n_chan32, mid_chan, 1, 1, 0)
@@ -130,12 +130,19 @@ class UShapeEffNetB0Backbone(nn.Module):
 
     def __init__(self, mid_chan=256):
         super(UShapeEffNetB0Backbone, self).__init__()
-        self.backbone = EfficientNetBackbone(r_width=1., r_depth=1.)
+        self.backbone = EfficientNetBackbone(model_type='b0')
         self.pyramid = PyramidModule(mid_chan=mid_chan)
+        self.conv32 = ConvBlock(256, 1024, 3, 1, 1)
+        self.conv16 = ConvBlock(256, 1024, 3, 1, 1)
+        self.conv8 = ConvBlock(256, 1024, 3, 1, 1)
+        #  self.pyramid = PyramidModule(1280, 448, 160, mid_chan=mid_chan)
 
     def forward(self, x):
-        _, _, feat4, feat8, _, feat16, _, _, feat32 = self.backbone(x)
+        feat4, feat8, feat16, feat32 = self.backbone(x)
         feat8, feat16, feat32 = self.pyramid(feat32, feat16, feat8)
+        feat32 = self.conv32(feat32)
+        feat16 = self.conv16(feat16)
+        feat8 = self.conv8(feat8)
 
         return feat8, feat16, feat32
 
@@ -145,7 +152,8 @@ class UShapeEffNetB0(nn.Module):
     def __init__(self, n_classes=19):
         super(UShapeEffNetB0, self).__init__()
         self.backbone = UShapeEffNetB0Backbone(mid_chan=256)
-        self.out = OutputModule(256, 128, n_classes, up_factor=8)
+        #  self.out = OutputModule(256, 128, n_classes, up_factor=8)
+        self.out = OutputModule(1024, 128, n_classes, up_factor=8)
 
     def forward(self, x):
         feat8, feat16, feat32 = self.backbone(x)
@@ -176,18 +184,28 @@ class UShapeEffNetB0ClassificationWrapper(nn.Module):
     def __init__(self, n_classes=1000):
         super(UShapeEffNetB0ClassificationWrapper, self).__init__()
         self.backbone = UShapeEffNetB0Backbone(mid_chan=256)
-        self.linear = nn.Linear(256, n_classes)
+        self.classifier = nn.Linear(256 * 4, n_classes)
         self.n_aux_heads = 2
 
     def forward(self, x):
-        logits, feat16, feat32 = self.backbone(x)
-        logits = torch.mean(logits, dim=(2, 3))
-        feat16 = torch.mean(feat16, dim=(2, 3))
-        feat32 = torch.mean(feat32, dim=(2, 3))
-        feat = logits + feat16 + feat32
-        logits = self.linear(feat)
+        feat8, feat16, feat32 = self.backbone(x)
+        tsize = feat16.size()[2:]
+        feat = F.interpolate(feat32, size=tsize, mode='nearest') + feat16
+
+        tsize = feat8.size()[2:]
+        feat = F.interpolate(feat, size=tsize, mode='nearest') + feat8
+
+        feat = torch.mean(feat, dim=(2, 3))
+        logits = self.classifier(feat)
 
         return logits
+
+
+    def get_states(self):
+        state = dict(
+            backbone=self.backbone.state_dict(),
+            classifier=self.classifier.state_dict())
+        return state
 
 
 if __name__ == "__main__":

@@ -245,9 +245,20 @@ r50，看先relu再bn，第一个conv-bn-relu-maxpool改成conv-relu-maxpool-bn:
 关于dropblock: 看resnet是否应该像tpu里面那样，在shortcut的地方加上dropblock，是否应该加上drop-connect
 
 spinenet-49s-100ep: 73.18/91.59/73.18/91.59
-spinenet-49s-200ep: 74.48/92.10/74.50/92.15
-spinenet-49-200ep: 77.38/93.72/77.51/93.74
 目标是49: 77/93.3
+
+ushape_effnet-b0，像spinenet那样merge所有feature: 
+    直接effnet+fpn: 74.84/92.23/74.9/92.24
+    effnet+4xconv+fpn: 74.88/92.03/74.93/92.12
+    直接effnet+fpn, 后面加一个4xconv: 75.87/92.66/75.92/92.73 -- 这个有用
+
+taylor-softmax: -- 都是没有lbsmooth的，所以跟model_zoo不太一样
+    r50-baseline: 122s/7155m: 76.22/93.17/76.06/93.01
+    r50-taylor-softmax:122s/7159m: 76.76/93.40/76.18/93.33
+    effnet-b0-taylor_softmax: 75.10/92.61/75.03/92.61
+    effnet-b0-baseline:
+    effnet-b0-taylor_softmax-taylor_se: -- discard, se使用的是sigmoid
+    上面做完了，再试一下large-margin吧，看是在imagenet上也有用
 
 
 ======
@@ -257,10 +268,11 @@ effnet-b0-bn0: 76.02/92.95/75.75/92.83
 effnet-b0+ra+200ep: 76.84/93.34/76.91/93.34
 effnet-b2: 78.66/94.41/78.69/94.38 -- 目标是79.8
 effnet-b2-lite: 77.69/93.86/77.65/93.85 
+effnet-b2-conv:
 再来effnet-b2: 78.79/94.26/78.77/94.28  -- 差不多，这个不保存
 effnet-b0-lite: 74.64/92.08/74.62/92.07
 effnet-b4: 81.04/95.57/81.08/95.59 -- pycls(78.4), official(82.5)
-effnet-b6:
+effnet-b6: 82.07/95.92/82.06/95.94 -- pycls(没有), official(84.00-带aa的)
 r50: 77.19/93.66/76.72/93.49
 r101:78.50/94.33/78.43/94.42
 r101+frelu: 78.88/94.35/79.06/94.54
@@ -273,8 +285,10 @@ pa-se-r50:
 pa-se-r101:
 dynamic-conv-r50:
 xception-41(deeplab): 80.50/95.20/80.54/95.23 -- 目标是79.55/94.33
-xception-65(deeplab): -- 目标是80.32/94.49
-xception-71(deeplab):
+xception-65(deeplab): 81.14/95.49/81.23/95.53 -- 目标是80.32/94.49
+xception-71(deeplab): 81.28/95.66/81.29/95.70
+spinenet-49s-200ep: 74.48/92.10/74.50/92.15
+spinenet-49-200ep: 77.38/93.72/77.51/93.74
 
 把effnet的fc改名成classifier，统一一下: 
 
@@ -291,6 +305,8 @@ hs-r50:
 结论: 
     1. cutmix跟ra作用重合
     2. cutmix和mixup一起用效果变坏
+    3. effnet-b6训练了44天，xception65只要3天，所以大模型的话，effnet不是很好，不发xception
+    4. xception41只比xception65低0.6个点，xception65只比xception71低0.1个点，所以最好的是41
 
 effnet改成把conv_out从backbone里面拿出去:  
 effnet把conv和conv_ws版本分开: 
