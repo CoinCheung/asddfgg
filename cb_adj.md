@@ -256,8 +256,9 @@ taylor-softmax: -- 都是没有lbsmooth的，所以跟model_zoo不太一样
     r50-baseline: 122s/7155m: 76.22/93.17/76.06/93.01
     r50-taylor-softmax:122s/7159m: 76.76/93.40/76.18/93.33
     effnet-b0-taylor_softmax: 75.10/92.61/75.03/92.61
-    effnet-b0-baseline:
+    effnet-b0-baseline: 75.40/92.54/75.44/92.56
     effnet-b0-taylor_softmax-taylor_se: -- discard, se使用的是sigmoid
+    effnet-b0-large_margin_v3: 76.10/92.45/75.90/92.38
     上面做完了，再试一下large-margin吧，看是在imagenet上也有用
 
 
@@ -268,7 +269,10 @@ effnet-b0-bn0: 76.02/92.95/75.75/92.83
 effnet-b0+ra+200ep: 76.84/93.34/76.91/93.34
 effnet-b2: 78.66/94.41/78.69/94.38 -- 目标是79.8
 effnet-b2-lite: 77.69/93.86/77.65/93.85 
-effnet-b2-conv:
+effnet-b2-conv: 79.95/94.80/80.00/94.82
+effnet-b0-conv: 76.19/92.29/75.87/92.31
+effnet-b2-lite-conv: 76.20/92.37/76.02/92.34 -- 重跑, 619
+effnet-b0-lite-conv:  75.90/92.36/75.88/92.34 -- 619，config还没整理
 再来effnet-b2: 78.79/94.26/78.77/94.28  -- 差不多，这个不保存
 effnet-b0-lite: 74.64/92.08/74.62/92.07
 effnet-b4: 81.04/95.57/81.08/95.59 -- pycls(78.4), official(82.5)
@@ -307,6 +311,7 @@ hs-r50:
     2. cutmix和mixup一起用效果变坏
     3. effnet-b6训练了44天，xception65只要3天，所以大模型的话，effnet不是很好，不发xception
     4. xception41只比xception65低0.6个点，xception65只比xception71低0.1个点，所以最好的是41
+    5. taylor-softmax的loss比exp-softmax的大一点，所以taylor引入的正则更强一些
 
 effnet改成把conv_out从backbone里面拿出去:  
 effnet把conv和conv_ws版本分开: 

@@ -139,7 +139,7 @@ class EfficientNetStage(nn.Module):
             b_in_chan = in_chan if i == 0 else out_chan
             layers.append(MBConv(b_in_chan, out_chan, ks, stride=b_stride,
                 expand_ratio=expand_ratio, se_ratio=se_ratio,
-                drop_connect_ratio=dc_ratios[i]), sepconv=sepconv
+                drop_connect_ratio=dc_ratios[i], sepconv=sepconv)
             )
         self.layers = nn.Sequential(*layers)
 
@@ -261,6 +261,10 @@ class EfficientNet(nn.Module):
         #      classifier=self.classifier.state_dict())
         return state
 
+    def load_states(self, state):
+        for name, child in self.named_children():
+            if name == 'classifier': name = 'fc'
+            child.load_state_dict(state[name])
 
 
 if __name__ == '__main__':

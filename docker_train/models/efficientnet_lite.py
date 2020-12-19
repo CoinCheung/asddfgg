@@ -85,7 +85,8 @@ class SEBlock(nn.Module):
 
 class MBConv(nn.Module):
 
-    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1, skip=True, drop_connect_ratio=0.2):
+    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1,
+            skip=True, drop_connect_ratio=0.2, sepconv=True):
         super(MBConv, self).__init__()
         assert ks in (3, 5, 7)
 
@@ -96,7 +97,8 @@ class MBConv(nn.Module):
             self.exp_conv = ConvBNAct(in_chan, exp_chan, 1, 1, 0)
         # depthwise conv
         n_pad = (ks - 1) // 2
-        self.dw_conv = ConvBNAct(exp_chan, exp_chan, ks, stride, n_pad, groups=exp_chan)
+        n_groups = exp_chan if sepconv else 1
+        self.dw_conv = ConvBNAct(exp_chan, exp_chan, ks, stride, n_pad, groups=n_groups)
         # project conv
         self.proj_conv = nn.Sequential(
             nn.Conv2d(exp_chan, out_chan, kernel_size=1, bias=False),
@@ -121,7 +123,8 @@ class MBConv(nn.Module):
 
 class EfficientNetLiteStage(nn.Module):
 
-    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1, se_ratio=0.25, n_blocks=1, dc_ratios=[0, ]):
+    def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1,
+            se_ratio=0.25, n_blocks=1, dc_ratios=[0, ], sepconv=True):
         super(EfficientNetLiteStage, self).__init__()
         layers = []
         for i in range(n_blocks):
@@ -129,7 +132,7 @@ class EfficientNetLiteStage(nn.Module):
             b_in_chan = in_chan if i == 0 else out_chan
             layers.append(MBConv(b_in_chan, out_chan, ks, stride=b_stride,
                 expand_ratio=expand_ratio,
-                drop_connect_ratio=dc_ratios[i])
+                drop_connect_ratio=dc_ratios[i], sepconv=sepconv)
             )
         self.layers = nn.Sequential(*layers)
 
@@ -151,7 +154,7 @@ params_dict = {
 
 class EfficientNetLiteBackbone(nn.Module):
 
-    def __init__(self, model_type='b0'):
+    def __init__(self, model_type='b0', sepconv=True):
         super(EfficientNetLiteBackbone, self).__init__()
 
         assert model_type in params_dict
@@ -166,7 +169,9 @@ class EfficientNetLiteBackbone(nn.Module):
             i_chan, o_chan, ks, strd, exp, n_b, dp_ratio = param
             self.add_module('layer{}'.format(i+1),
                 EfficientNetLiteStage(i_chan, o_chan, ks, strd,
-                expand_ratio=exp, n_blocks=n_b, dc_ratios=dp_ratio)
+                expand_ratio=exp, n_blocks=n_b, dc_ratios=dp_ratio,
+                sepconv=sepconv
+                )
             )
         self.out_chans = (model_params[1][1], model_params[1][2],
                 model_params[1][4], model_params[1][6])
@@ -216,12 +221,18 @@ class EfficientNetLiteBackbone(nn.Module):
 
 class EfficientNetLite(nn.Module):
 
-    def __init__(self, model_type='b0', n_classes=1000):
+    def __init__(self, model_type='b0_sepconv', n_classes=1000):
         super(EfficientNetLite, self).__init__()
+        model_type, backbone_type = model_type.split('_')
         assert model_type in params_dict
         r_width, _, _, r_dropout = params_dict[model_type]
 
-        self.backbone = EfficientNetLiteBackbone(model_type=model_type)
+        if backbone_type == 'conv':
+            sepconv = False
+        elif backbone_type == 'sepconv':
+            sepconv = True
+        self.backbone = EfficientNetLiteBackbone(model_type=model_type, sepconv=sepconv)
+
         o_chan = self.backbone.out_chans[-1]
         n_out_head_chan = round_channels(o_chan * 4, r_width)
         self.conv_out = ConvBNAct(o_chan, n_out_head_chan, ks=1, stride=1, padding=0)
@@ -243,6 +254,11 @@ class EfficientNetLite(nn.Module):
         #      classifier=self.classifier.state_dict())
         return state
 
+
+    def load_states(self, state):
+        for name, child in self.named_children():
+            #  if name == 'classifier': name = 'fc'
+            child.load_state_dict(state[name])
 
 
 if __name__ == '__main__':

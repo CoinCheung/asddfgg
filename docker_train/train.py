@@ -42,7 +42,7 @@ from cross_entropy import (
 #  from config.frelu_resnet101 import *
 #  from config.xception41 import *
 #  from config.xception65 import *
-from config.xception71 import *
+#  from config.xception71 import *
 #  from config.wa_resnet50 import *
 #  from config.askc_resnet101 import *
 #  from config.se_resnet50 import *
@@ -51,9 +51,13 @@ from config.xception71 import *
 
 #  from config.effnetb0 import *
 #  from config.effnetb0_lite import *
+#  from config.effnetb0_conv import *
+#  from config.effnetb0_lite_conv import *
 #  from config.effnetb1 import *
 #  from config.effnetb2 import *
+#  from config.effnetb2_conv import *
 #  from config.effnetb2_lite import *
+from config.effnetb2_lite_conv import *
 #  from config.effnetb4 import *
 #  from config.effnetb6 import *
 #  from config.ushape_effnetb0 import *
