@@ -46,8 +46,11 @@ from cross_entropy import (
 #  from config.wa_resnet50 import *
 #  from config.askc_resnet101 import *
 #  from config.se_resnet50 import *
+#  from config.se_resnet101 import *
 #  from config.se_pa_resnet50 import *
 #  from config.se_pa_resnet101 import *
+#  from config.dyconv_resnet50 import *
+from config.bisenetv2 import *
 
 #  from config.effnetb0 import *
 #  from config.effnetb0_lite import *
@@ -57,7 +60,7 @@ from cross_entropy import (
 #  from config.effnetb2 import *
 #  from config.effnetb2_conv import *
 #  from config.effnetb2_lite import *
-from config.effnetb2_lite_conv import *
+#  from config.effnetb2_lite_conv import *
 #  from config.effnetb4 import *
 #  from config.effnetb6 import *
 #  from config.ushape_effnetb0 import *

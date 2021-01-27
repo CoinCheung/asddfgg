@@ -7,6 +7,8 @@ import torch.nn.functional as F
 
 import functools
 
+from pytorch_loss import DY_Conv2d
+
 #  from torch.nn import Conv2d as Conv2dWS
 #  from torch.nn import Conv2d as SphereConv2d
 
@@ -386,8 +388,12 @@ def build_conv(conv_type, in_chan, out_chan, kernel_size,
         conv = nn.Conv2d(in_chan, out_chan, kernel_size, stride=stride,
                 padding=padding, dilation=dilation, groups=groups,
                 bias=bias)
-    if conv_type == 'wa':
+    elif conv_type == 'wa':
         conv = Conv2dWA(in_chan, out_chan, kernel_size, stride=stride,
                 padding=padding, dilation=dilation, groups=groups,
                 bias=bias, **kwargs)
+    elif conv_type == 'dy':
+        conv = DY_Conv2d(in_chan, out_chan, kernel_size, stride=stride,
+                padding=padding, dilation=dilation, groups=groups,
+                bias=bias, act=nn.ReLU(inplace=True), K=4, **kwargs)
     return conv

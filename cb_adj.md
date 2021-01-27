@@ -262,29 +262,32 @@ taylor-softmax: -- 都是没有lbsmooth的，所以跟model_zoo不太一样
     上面做完了，再试一下large-margin吧，看是在imagenet上也有用
 
 
+densecl:
+
 ======
 model_zoo:
 effnet-b0: 76.03/92.84/75.96/92.78
 effnet-b0-bn0: 76.02/92.95/75.75/92.83
 effnet-b0+ra+200ep: 76.84/93.34/76.91/93.34
+effnet-b0-conv: 76.19/92.29/75.87/92.31
+effnet-b0-lite-conv:  75.90/92.36/75.88/92.34 
 effnet-b2: 78.66/94.41/78.69/94.38 -- 目标是79.8
 effnet-b2-lite: 77.69/93.86/77.65/93.85 
 effnet-b2-conv: 79.95/94.80/80.00/94.82
-effnet-b0-conv: 76.19/92.29/75.87/92.31
-effnet-b2-lite-conv: 76.20/92.37/76.02/92.34 -- 重跑, 619
-effnet-b0-lite-conv:  75.90/92.36/75.88/92.34 -- 619，config还没整理
+effnet-b2-lite-conv: 78.90/94.33/78.93/94.34 
 再来effnet-b2: 78.79/94.26/78.77/94.28  -- 差不多，这个不保存
 effnet-b0-lite: 74.64/92.08/74.62/92.07
 effnet-b4: 81.04/95.57/81.08/95.59 -- pycls(78.4), official(82.5)
 effnet-b6: 82.07/95.92/82.06/95.94 -- pycls(没有), official(84.00-带aa的)
 r50: 77.19/93.66/76.72/93.49
+r50不带bn0的: 77.3/93.77/76.56/93.43
 r101:78.50/94.33/78.43/94.42
 r101+frelu: 78.88/94.35/79.06/94.54
 r101, frelu, conv-maxpool-bn-relu: 78.71/94.26/79.16/94.4 -- 上次跑到这了
 pa-r50: 76.93/93.47/76.69/93.43
 pa-r101: 78.37/94.11/78.04/94.11
-se-r50:
-se-r101:
+se-r50: 78.74/94.31/78.81/94.40
+se-r101: 79.78/94.89/80.02/95.01
 pa-se-r50:
 pa-se-r101:
 dynamic-conv-r50:
@@ -297,6 +300,8 @@ spinenet-49-200ep: 77.38/93.72/77.51/93.74
 把effnet的fc改名成classifier，统一一下: 
 
 改成自动根据gpu数来调学习率的
+
+试一下batch augmentation，同一张图做M次aug，组成一个batch这种。
 
 weight_align_r50: discard
 weight_align_r101: 80ep后top1到70，然后loss变成nan

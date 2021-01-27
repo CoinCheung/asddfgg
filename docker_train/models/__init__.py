@@ -5,10 +5,11 @@ import torch.nn as nn
 from .efficientnet_refactor import EfficientNet
 from .efficientnet_lite import EfficientNetLite
 from .resnet import (ResNet, SEResNet, ASKCResNet, PAResNet, SE_PAResNet,
-        WAResNet, FReLUResNet)
+        WAResNet, FReLUResNet, DYConvResNet)
 from .ushape_effnet import UShapeEffNetB0ClassificationWrapper
 from .xception_v2 import Xception41, Xception65, Xception71, Xception
 from .spinenet import SpineNetClassificationWrapper
+from .bisenetv2 import BiSeNetV2TrainWrapper
 
 
 def build_model(model_type, n_classes):
@@ -63,6 +64,12 @@ def build_model(model_type, n_classes):
         model = ASKCResNet(n_classes=n_classes)
     elif model_type == 'askc-resnet-101':
         model = ASKCResNet(n_layers=101, n_classes=n_classes)
+
+    elif model_type == 'dyconv_resnet-50':
+        model = DYConvResNet(n_classes=n_classes)
+
+    elif model_type == 'bisenetv2':
+        model = BiSeNetV2TrainWrapper(n_classes=n_classes)
 
     init_model_weights(model)
 

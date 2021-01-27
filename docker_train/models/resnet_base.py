@@ -353,9 +353,11 @@ class ResNetBackboneBase(nn.Module):
         else:
             raise NotImplementedError
 
-        self.bn0 = nn.BatchNorm2d(3)
+        #  self.bn0 = nn.BatchNorm2d(3)
         #  self.conv1 = Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.conv1 = build_conv(conv_type, 3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        conv_type0 = conv_type
+        if conv_type == 'dy': conv_type0 = 'nn'
+        self.conv1 = build_conv(conv_type0, 3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         #  self.relu = nn.ReLU(inplace=True)
         self.relu = build_act(act_type, chan=64)
@@ -383,7 +385,7 @@ class ResNetBackboneBase(nn.Module):
 
 
     def forward(self, x):
-        x = self.bn0(x)
+        #  x = self.bn0(x)
         x = self.conv1(x)
         x = self.maxpool(x)
         x = self.bn1(x)

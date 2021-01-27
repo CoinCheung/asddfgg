@@ -94,6 +94,22 @@ class FReLUResNet(ResNetBase):
         self.backbone = FReLUResNetBackbone(n_layers, stride)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
+## dy_conv-resnet-v1
+class DYConvResNetBackbone(ResNetBackboneBase):
+
+    def __init__(self, n_layers=50, stride=32):
+        super(DYConvResNetBackbone, self).__init__(
+                n_layers=n_layers, stride=stride, use_askc=False, conv_type='dy',
+                act_type='relu')
+
+
+class DYConvResNet(ResNetBase):
+
+    def __init__(self, n_layers=50, stride=32, n_classes=1000):
+        super(DYConvResNet, self).__init__()
+        self.backbone = DYConvResNetBackbone(n_layers, stride)
+        self.classifier = nn.Linear(2048, n_classes, bias=True)
+
 
 ## resnet-v2
 class PAResNetBackbone(PAResNetBackBoneBase):
