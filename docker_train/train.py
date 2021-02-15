@@ -199,7 +199,7 @@ def main():
 
             lb = label_encoder(lb)
             #  im, lb = mixuper(im, lb)
-            #  im, lb = cutmixer(im, lb)
+            im, lb = cutmixer(im, lb)
 
             optim.zero_grad()
             with amp.autocast(enabled=use_mixed_precision):

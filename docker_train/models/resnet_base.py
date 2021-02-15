@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 from torch.nn import Conv2d
 from .conv_ops import build_conv
+from .ibn import IBN
 
 from pytorch_loss import FReLU
 
@@ -150,6 +151,7 @@ class Bottleneck(nn.Module):
                  conv_type='nn',
                  act_type='relu',
                  use_se=False,
+                 ibn='none',
                  use_askc=False):
         super(Bottleneck, self).__init__()
 
@@ -158,12 +160,14 @@ class Bottleneck(nn.Module):
         mid_chan = out_chan // 4
 
         self.conv1 = build_conv(conv_type, in_chan,
-        #  self.conv1 = Conv2d(in_chan,
                             mid_chan,
                             kernel_size=1,
                             stride=stride1x1,
                             bias=False)
-        self.bn1 = nn.BatchNorm2d(mid_chan)
+        if ibn == 'a':
+            self.bn1 = IBN(mid_chan)
+        else:
+            self.bn1 = nn.BatchNorm2d(mid_chan)
         #  self.relu1 = FReLU(mid_chan)
         self.relu1 = build_act(act_type, mid_chan)
         #  self.conv2 = Conv2d(mid_chan,
@@ -185,8 +189,6 @@ class Bottleneck(nn.Module):
         self.bn3 = nn.BatchNorm2d(out_chan)
         self.bn3.last_bn = True if not use_se else False
         #  self.relu = nn.ReLU(inplace=True)
-        self.relu3 = build_act(act_type, out_chan)
-        #  self.relu3 = FReLU(out_chan)
 
         self.use_se = use_se
         if use_se:
@@ -203,6 +205,13 @@ class Bottleneck(nn.Module):
         self.use_askc = use_askc
         if use_askc:
             self.sc_fuse = ASKCFuse(out_chan, 4)
+
+        self.in = None
+        if ibn == 'b':
+            self.in = nn.InstanceNorm2d(out_chan, affine=True)
+
+        self.relu3 = build_act(act_type, out_chan)
+        #  self.relu3 = FReLU(out_chan)
 
 
     def forward(self, x):
@@ -227,6 +236,9 @@ class Bottleneck(nn.Module):
             out = self.sc_fuse(residual, inten)
         else:
             out = residual + inten
+
+        if not self.in is None:
+            out = self.in(out)
 
         #  out = self.relu(out)
         out = self.relu3(out)
@@ -315,15 +327,17 @@ class PABottleneck(nn.Module):
 
 
 def create_stage(in_chan, out_chan, b_num, stride=1, dilation=1,
-            use_se=False, use_askc=False, conv_type='nn', act_type='relu'):
+            use_se=False, use_askc=False, conv_type='nn', act_type='relu', ibn='none'):
     assert out_chan % 4 == 0
+    block_ibn = 'none' if ibn == 'b' else ibn
     blocks = [Bottleneck(in_chan, out_chan, stride=stride, dilation=dilation,
                 use_se=use_se, use_askc=use_askc,
-                conv_type=conv_type, act_type=act_type),]
+                conv_type=conv_type, act_type=act_type, ibn=block_ibn),]
     for i in range(1, b_num):
+        block_ibn = ibn if ibn == 'b' and i == b_num - 1 else 'none'
         blocks.append(Bottleneck(out_chan, out_chan, stride=1,
                     dilation=dilation, use_se=use_se, use_askc=use_askc,
-                    conv_type=conv_type, act_type=act_type))
+                    conv_type=conv_type, act_type=act_type, ibn=block_ibn))
     return nn.Sequential(*blocks)
 
 
@@ -341,7 +355,7 @@ def create_stage_pa(in_chan, out_chan, b_num, stride=1, dilation=1,
 
 class ResNetBackboneBase(nn.Module):
 
-    def __init__(self, n_layers=50, stride=32, use_se=False, use_askc=False, conv_type='nn', act_type='relu'):
+    def __init__(self, n_layers=50, stride=32, use_se=False, use_askc=False, conv_type='nn', act_type='relu', ibn='none'):
         super(ResNetBackboneBase, self).__init__()
         assert stride in (8, 16, 32)
         dils = [1, 1] if stride == 32 else [el*(16//stride) for el in (1, 2)]
@@ -353,12 +367,21 @@ class ResNetBackboneBase(nn.Module):
         else:
             raise NotImplementedError
 
+        ## ibn
+        ibns = ['none', 'none', 'none', 'none']
+        if ibn == 'a':
+            ibns = ['a', 'a', 'a', 'none']
+        elif ibn == 'b':
+            ibns = ['b', 'b', 'none', 'none']
+
         #  self.bn0 = nn.BatchNorm2d(3)
-        #  self.conv1 = Conv2d(3, 64, kernel_size=7, stride=2, padding=3, bias=False)
         conv_type0 = conv_type
         if conv_type == 'dy': conv_type0 = 'nn'
         self.conv1 = build_conv(conv_type0, 3, 64, kernel_size=7, stride=2, padding=3, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
+        if ibn == 'b':
+            self.bn1 = nn.InstanceNorm2d(64, affine=True)
+        else:
+            self.bn1 = nn.BatchNorm2d(64)
         #  self.relu = nn.ReLU(inplace=True)
         self.relu = build_act(act_type, chan=64)
         #  self.relu = FReLU(64)
@@ -366,18 +389,22 @@ class ResNetBackboneBase(nn.Module):
                 dilation=1, ceil_mode=False)
         self.layer1 = create_stage(64, 256, layers[0], stride=1, dilation=1,
                     use_se=use_se,
-                    use_askc=use_askc, conv_type=conv_type, act_type=act_type)
+                    use_askc=use_askc, conv_type=conv_type, act_type=act_type,
+                    ibn=ibns[0])
         self.layer2 = create_stage(256, 512, layers[1], stride=2, dilation=1,
                     use_se=use_se,
-                    use_askc=use_askc, conv_type=conv_type, act_type=act_type)
+                    use_askc=use_askc, conv_type=conv_type, act_type=act_type,
+                    ibn=ibns[1])
         self.layer3 = create_stage(512, 1024, layers[2], stride=strds[0],
                     dilation=dils[0],
                     use_se=use_se,
-                    use_askc=use_askc, conv_type=conv_type, act_type=act_type)
+                    use_askc=use_askc, conv_type=conv_type, act_type=act_type,
+                    ibn=ibns[2])
         self.layer4 = create_stage(1024, 2048, layers[3], stride=strds[1],
                     dilation=dils[1],
                     use_se=use_se,
-                    use_askc=use_askc, conv_type=conv_type, act_type=act_type)
+                    use_askc=use_askc, conv_type=conv_type, act_type=act_type,
+                    ibn=ibns[3])
 
         #  init_weight(self)
         self.layers = []

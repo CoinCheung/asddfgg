@@ -1,11 +1,11 @@
 
 n_gpus = 8
 batchsize = 512
-n_epoches = 100
+n_epoches = 200
 n_eval_epoch = 1
 opt_type = 'SGD'
 opt_args = dict(
-        lr=1.0 * (batchsize / 128) * n_gpus,
+        lr=0.5 * (batchsize / 128) * n_gpus,
         weight_decay=1e-5, momentum=0.9)
 schdlr_type = 'CosineLr'
 schdlr_args = dict(
@@ -21,7 +21,7 @@ use_mixed_precision = True
 use_sync_bn = False
 mixup = 'mixup'
 mixup_alpha = 0.2
-cutmix_beta = 1.
+cutmix_beta = 0.2
 lb_smooth = 0.1
 
 # org
