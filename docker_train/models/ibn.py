@@ -5,7 +5,8 @@ import torch.nn as nn
 
 class IBN(nn.Module):
 
-    def __init__(self, in_chan, ratio):
+    def __init__(self, in_chan, ratio=0.5):
+        super(IBN, self).__init__()
         self.inorm_chan = int(in_chan * ratio)
         self.inorm = nn.InstanceNorm2d(self.inorm_chan, affine=True)
         self.bnorm = nn.BatchNorm2d(in_chan - self.inorm_chan)

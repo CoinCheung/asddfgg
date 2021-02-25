@@ -296,6 +296,17 @@ xception-65(deeplab): 81.14/95.49/81.23/95.53 -- 目标是80.32/94.49
 xception-71(deeplab): 81.28/95.66/81.29/95.70
 spinenet-49s-200ep: 74.48/92.10/74.50/92.15
 spinenet-49-200ep: 77.38/93.72/77.51/93.74
+ibn_b_resnet101:
+ibn_resnet101d-a:
+
+带cutmix的:
+    ibn_resnet50-a: 77.27/93.78/75.52/93.56
+    ibn_resnet50-b: 75.45/92.83/74.77/92.44
+不带cutmix的:
+    ibn_resnet50-a: 77.42/93.63/77.49/93.74
+    ibn_resnet50-b: 73.56/91.49/72.87/91.04
+    ibn_resnet50-b, fix_maxpool: 74.08/92.04/73.79/91.75
+
 
 把effnet的fc改名成classifier，统一一下: 
 

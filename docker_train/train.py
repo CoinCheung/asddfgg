@@ -50,7 +50,10 @@ from cross_entropy import (
 #  from config.se_pa_resnet50 import *
 #  from config.se_pa_resnet101 import *
 #  from config.dyconv_resnet50 import *
-from config.bisenetv2 import *
+#  from config.bisenetv2 import *
+#  from config.ibn_a_resnet50 import *
+#  from config.ibn_b_resnet50 import *
+from config.ibn_a_resnet101 import *
 
 #  from config.effnetb0 import *
 #  from config.effnetb0_lite import *
@@ -159,9 +162,9 @@ def main():
 
     ## sync bn
     if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    #  crit = nn.CrossEntropyLoss()
+    crit = nn.CrossEntropyLoss()
     #  crit = LabelSmoothSoftmaxCEV3(lb_smooth)
-    crit = SoftmaxCrossEntropyV1()
+    #  crit = SoftmaxCrossEntropyV1()
 
     ## optimizer
     optim, scheduler = set_optimizer(model,
@@ -197,9 +200,9 @@ def main():
         for idx, (im, lb) in enumerate(dl_train):
             im, lb= im.cuda(non_blocking=True), lb.cuda(non_blocking=True)
 
-            lb = label_encoder(lb)
+            #  lb = label_encoder(lb)
             #  im, lb = mixuper(im, lb)
-            im, lb = cutmixer(im, lb)
+            #  im, lb = cutmixer(im, lb)
 
             optim.zero_grad()
             with amp.autocast(enabled=use_mixed_precision):

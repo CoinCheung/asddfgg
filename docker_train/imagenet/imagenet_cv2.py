@@ -41,7 +41,7 @@ class ImageNet(Dataset):
         self.trans_train = T.Compose([
             T.RandomResizedCrop(cropsize),
             T.RandomHorizontalFlip(),
-            RandomAugment(2, 9),
+            #  RandomAugment(2, 9),
             T.ToTensor(),
             T.PCANoise(0.1),
             T.Normalize(img_mean, img_std)
