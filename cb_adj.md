@@ -306,6 +306,7 @@ ibn_resnet101d-a:
     ibn_resnet50-a: 77.42/93.63/77.49/93.74
     ibn_resnet50-b: 73.56/91.49/72.87/91.04
     ibn_resnet50-b, fix_maxpool: 74.08/92.04/73.79/91.75
+    ibn_resnet101-a: 78.61/94.36/78.84/94.51
 
 
 把effnet的fc改名成classifier，统一一下: 

@@ -2,7 +2,7 @@ import os.path as osp
 import argparse
 import numpy as np
 
-from models import build_model
+from cbl_models import build_model
 import torch
 import torch.distributed as dist
 from torch.utils.data import Dataset, DataLoader

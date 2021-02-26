@@ -15,7 +15,7 @@ from torch.utils.data import Dataset, DataLoader
 import torch.distributed as dist
 import torch.cuda.amp as amp
 
-from models import build_model
+from cbl_models import build_model
 from imagenet.imagenet_cv2 import ImageNet
 #  from imagenet.imagenet import ImageNet
 from eval import eval_model
