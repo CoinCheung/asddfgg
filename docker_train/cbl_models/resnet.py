@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from torch.nn import Conv2d
 #  from .conv_ops import Conv2dWS as Conv2d
 
-from .resnet_base import ResNetBackboneBase, ResNetBase
+from .resnet_base import ResNetBackboneBase, ResNetBase, ResNetDenseCLBase
 from .resnet_base import PAResNetBackBoneBase, PAResNetBase
 
 
@@ -125,6 +125,14 @@ class IBNResNetA(ResNetBase):
         self.backbone = IBNResNetBackboneA(n_layers, stride)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
+
+class IBNResNetDenseCLA(ResNetDenseCLBase):
+
+    def __init__(self, n_layers=50, stride=32, n_classes=1000):
+        super(IBNResNetDenseCLA, self).__init__(dim=2048, n_classes=n_classes)
+        self.backbone = IBNResNetBackboneA(n_layers, stride)
+
+
 ## ibn-b-resnet-v1
 class IBNResNetBackboneB(ResNetBackboneBase):
 
@@ -139,6 +147,14 @@ class IBNResNetB(ResNetBase):
         super(IBNResNetB, self).__init__()
         self.backbone = IBNResNetBackboneB(n_layers, stride)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
+
+
+class IBNResNetDenseCLB(ResNetDenseCLBase):
+
+    def __init__(self, n_layers=50, stride=32, n_classes=1000):
+        super(IBNResNetDenseCLB, self).__init__(dim=2048, n_classes=n_classes)
+        self.backbone = IBNResNetBackboneB(n_layers, stride)
+
 
 
 ## resnet-v2

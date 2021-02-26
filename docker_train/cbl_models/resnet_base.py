@@ -584,6 +584,39 @@ class PAResNetBase(nn.Module):
 
 
 
+### for denseCL pretrain
+class ResNetDenseCLBase(nn.Module):
+
+    def __init__(self, dim, n_classes):
+        super(ResNetDenseCLBase, self).__init__()
+        self.fc = nn.Linear(dim, n_classes, bias=True)
+        self.dense_head = nn.Sequential(
+                nn.Conv2d(dim, dim, 1, 1, 0, bias=True),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(dim, n_classes, 1, 1, 0, bias=True))
+
+    def forward(self, x):
+        feat = self.backbone(x)[-1]
+        x = torch.mean(feat, dim=(2, 3))
+        logits = self.fc(x)
+        dense = self.dense_head(feat)
+        return logits, dense, feat
+
+    def get_states(self):
+        state = dict(
+            backbone=self.backbone.state_dict(),
+            fc=self.fc.state_dict(),
+            dense_head=self.dense_head.state_dict(),
+        )
+        return state
+
+    def load_states(self, state):
+        self.backbone.load_state_dict(state['backbone'])
+        self.fc.load_state_dict(state['classifier'])
+        self.dense_head.load_state_dict(state['classifier'])
+
+
+
 if __name__ == "__main__":
     #  layer1 = create_stage(64, 256, 3, 1, 1)
     #  layer2 = create_stage(256, 512, 4, 2, 1)

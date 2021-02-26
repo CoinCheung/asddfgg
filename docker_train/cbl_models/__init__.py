@@ -5,7 +5,8 @@ import torch.nn as nn
 from .efficientnet_refactor import EfficientNet
 from .efficientnet_lite import EfficientNetLite
 from .resnet import (ResNet, SEResNet, ASKCResNet, PAResNet, SE_PAResNet,
-        WAResNet, FReLUResNet, DYConvResNet, IBNResNetA, IBNResNetB)
+        WAResNet, FReLUResNet, DYConvResNet, IBNResNetA, IBNResNetB,
+        IBNResNetDenseCLA )
 from .ushape_effnet import UShapeEffNetB0ClassificationWrapper
 from .xception_v2 import Xception41, Xception65, Xception71, Xception
 from .spinenet import SpineNetClassificationWrapper
@@ -59,6 +60,8 @@ def build_model(model_type, n_classes):
         model = IBNResNetB(n_classes=n_classes)
     elif model_type == 'ibn_b_resnet-101':
         model = IBNResNetB(n_layers=101, n_classes=n_classes)
+    elif model_type == 'ibn_a_resnet_densecl-101':
+        model = IBNResNetDenseCLA(n_layers=101, n_classes=n_classes)
 
     elif model_type.startswith('frelu_resnet'):
         n_layers = int(model_type.split('-')[1])
