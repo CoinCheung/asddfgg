@@ -51,9 +51,9 @@ from cross_entropy import (
 #  from config.se_pa_resnet101 import *
 #  from config.dyconv_resnet50 import *
 #  from config.bisenetv2 import *
-#  from config.ibn_a_resnet50 import *
+from config.ibn_a_resnet50 import *
 #  from config.ibn_b_resnet50 import *
-from config.ibn_a_resnet101 import *
+#  from config.ibn_a_resnet101 import *
 
 #  from config.effnetb0 import *
 #  from config.effnetb0_lite import *
@@ -157,7 +157,7 @@ def main():
 
 
     ## model
-    model = build_model(**model_args)
+    model = build_model(model_args)
     model.cuda()
 
     ## sync bn

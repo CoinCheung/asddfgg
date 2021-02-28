@@ -11,12 +11,13 @@ from imagenet.imagenet_cv2 import ImageNet
 #  from config.effnetb0 import *
 #  from config.effnetb2 import *
 #  from config.effnetb0_lite import *
-from config.effnetb2_lite import *
+#  from config.effnetb2_lite import *
 #  from config.resnet101 import *
 #  from config.frelu_resnet101 import *
+from config.ibn_a_resnet50 import *
 
 
-ckpt_path = './res/pretrained/model_final_naive_lite_eff_b2_pycls.pth'
+ckpt_path = './res/model_final_naive_r50_ibn_a.pth'
 
 def evaluate(model, dl_eval):
     acc_1, acc_5 = eval_model(model, dl_eval)
@@ -56,7 +57,7 @@ def eval_model(model, dl_eval):
 def main():
     #  model = ResNet50()
     #  model = EfficientNet(model_type, n_classes)
-    model = build_model(**model_args)
+    model = build_model(model_args)
     sd = torch.load(ckpt_path, map_location='cpu')
     #  new_sd = {}
     #  for k, v in sd.items():

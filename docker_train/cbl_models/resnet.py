@@ -10,7 +10,6 @@ from torch.nn import Conv2d
 #  from .conv_ops import Conv2dWS as Conv2d
 
 from .resnet_base import ResNetBackboneBase, ResNetBase, ResNetDenseCLBase
-from .resnet_base import PAResNetBackBoneBase, PAResNetBase
 
 
 
@@ -113,16 +112,18 @@ class DYConvResNet(ResNetBase):
 ## ibn-a-resnet-v1
 class IBNResNetBackboneA(ResNetBackboneBase):
 
-    def __init__(self, n_layers=50, stride=32):
+    def __init__(self, n_layers=50, stride=32, use_blur_pool=False):
         super(IBNResNetBackboneA, self).__init__(
-                n_layers=n_layers, stride=stride, ibn='a', act_type='relu')
+                n_layers=n_layers, stride=stride, ibn='a', act_type='relu',
+                use_blur_pool=use_blur_pool
+                )
 
 
 class IBNResNetA(ResNetBase):
 
-    def __init__(self, n_layers=50, stride=32, n_classes=1000):
+    def __init__(self, n_layers=50, stride=32, n_classes=1000, use_blur_pool=False):
         super(IBNResNetA, self).__init__()
-        self.backbone = IBNResNetBackboneA(n_layers, stride)
+        self.backbone = IBNResNetBackboneA(n_layers, stride, use_blur_pool=use_blur_pool)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
 
@@ -136,16 +137,18 @@ class IBNResNetDenseCLA(ResNetDenseCLBase):
 ## ibn-b-resnet-v1
 class IBNResNetBackboneB(ResNetBackboneBase):
 
-    def __init__(self, n_layers=50, stride=32):
+    def __init__(self, n_layers=50, stride=32, use_blur_pool=False):
         super(IBNResNetBackboneB, self).__init__(
-                n_layers=n_layers, stride=stride, ibn='b', act_type='relu')
+                n_layers=n_layers, stride=stride, ibn='b', act_type='relu',
+                use_blur_pool=use_blur_pool
+                )
 
 
 class IBNResNetB(ResNetBase):
 
-    def __init__(self, n_layers=50, stride=32, n_classes=1000):
+    def __init__(self, n_layers=50, stride=32, n_classes=1000, use_blur_pool=False):
         super(IBNResNetB, self).__init__()
-        self.backbone = IBNResNetBackboneB(n_layers, stride)
+        self.backbone = IBNResNetBackboneB(n_layers, stride, use_blur_pool=use_blur_pool)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
 
@@ -157,37 +160,6 @@ class IBNResNetDenseCLB(ResNetDenseCLBase):
 
 
 
-## resnet-v2
-class PAResNetBackbone(PAResNetBackBoneBase):
-
-    def __init__(self, n_layers=50, stride=32):
-        super(PAResNetBackbone, self).__init__(
-                n_layers=n_layers, stride=stride)
-
-
-class PAResNet(PAResNetBase):
-
-    def __init__(self, n_layers=50, stride=32, n_classes=1000):
-        super(PAResNet, self).__init__()
-        self.backbone = PAResNetBackbone(n_layers, stride)
-        self.classifier = nn.Linear(2048, n_classes, bias=True)
-
-
-## se-resnet-v2
-class SE_PAResNetBackbone(PAResNetBackBoneBase):
-
-    def __init__(self, n_layers=50, stride=32):
-        super(SE_PAResNetBackbone, self).__init__(
-                n_layers=n_layers, stride=stride, use_se=True)
-
-
-class SE_PAResNet(PAResNetBase):
-
-    def __init__(self, n_layers=50, stride=32, n_classes=1000):
-        super(PAResNet, self).__init__()
-        self.backbone = SE_PAResNetBackbone(n_layers, stride)
-        self.classifier = nn.Linear(2048, n_classes, bias=True)
-
 
 
 if __name__ == "__main__":
@@ -196,12 +168,14 @@ if __name__ == "__main__":
     #  layer3 = create_stage(512, 1024, 6, 1, 2)
     #  layer4 = create_stage(1024, 2048, 3, 1, 4)
     #  print(layer4)
-    resnet = Resnet101()
-    inten = torch.randn(1, 3, 224, 224)
-    _, _, _, out = resnet(inten)
+    resnet = IBNResNetA()
+    inten = torch.randn(1, 3, 224+33, 224)
+    out = resnet(inten)
     print(out.size())
-    for name, param in resnet.named_parameters():
-        if 'bias' in name:
-            print(name)
+    import torchvision
+    model = torchvision.models.resnet50(pretrained=False)
+    #  for name, param in resnet.named_parameters():
+    #      if 'bias' in name:
+    #          print(name)
 
 
