@@ -319,7 +319,7 @@ def create_stage(in_chan, out_chan, b_num, stride=1, dilation=1,
 
 class ResNetBackboneBase(nn.Module):
 
-    def __init__(self, n_layers=50, stride=32, use_se=False, use_askc=False, conv_type='nn', act_type='relu', ibn='none', res_type='naive', use_blur_pool=False):
+    def __init__(self, in_chan=3, n_layers=50, stride=32, use_se=False, use_askc=False, conv_type='nn', act_type='relu', ibn='none', res_type='naive', use_blur_pool=False):
         super(ResNetBackboneBase, self).__init__()
         assert stride in (8, 16, 32)
         dils = [1, 1] if stride == 32 else [el*(16//stride) for el in (1, 2)]
@@ -343,7 +343,7 @@ class ResNetBackboneBase(nn.Module):
             #  self.bn0 = nn.BatchNorm2d(3)
             conv_type0 = conv_type
             if conv_type == 'dy': conv_type0 = 'nn'
-            self.conv1 = build_conv(conv_type0, 3, 64, kernel_size=7, stride=2, padding=3, bias=False)
+            self.conv1 = build_conv(conv_type0, in_chan, 64, kernel_size=7, stride=2, padding=3, bias=False)
             if ibn == 'b':
                 self.bn1 = nn.InstanceNorm2d(64, affine=True)
             else:
@@ -354,7 +354,7 @@ class ResNetBackboneBase(nn.Module):
             #  self.conv1 = nn.Sequential(conv1, bn1, relu)
         elif self.res_type == 'res_d':
             self.conv1 = nn.Sequential(
-                ConvBlock(3, 32, 3, 2, 1),
+                ConvBlock(in_chan, 32, 3, 2, 1),
                 ConvBlock(32, 32, 3, 1, 1),
                 ConvBlock(32, 64, 3, 1, 1))
 

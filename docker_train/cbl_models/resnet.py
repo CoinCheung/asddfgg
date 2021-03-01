@@ -16,16 +16,19 @@ from .resnet_base import ResNetBackboneBase, ResNetBase, ResNetDenseCLBase
 ## resnet-v1
 class ResNetBackbone(ResNetBackboneBase):
 
-    def __init__(self, n_layers=50, stride=32):
+    def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False):
         super(ResNetBackbone, self).__init__(
-                n_layers=n_layers, stride=stride)
+                in_chan=in_chan, n_layers=n_layers, stride=stride,
+                use_blur_pool=use_blur_pool
+                )
+
 
 
 class ResNet(ResNetBase):
 
-    def __init__(self, n_layers=50, stride=32, n_classes=1000):
+    def __init__(self, n_layers=50, stride=32, n_classes=1000, use_blur_pool=False):
         super(ResNet, self).__init__()
-        self.backbone = ResNetBackbone(n_layers, stride)
+        self.backbone = ResNetBackbone(n_layers=n_layers, use_blur_pool=use_blur_pool)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
 
@@ -93,6 +96,7 @@ class FReLUResNet(ResNetBase):
         self.backbone = FReLUResNetBackbone(n_layers, stride)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
+
 ## dy_conv-resnet-v1
 class DYConvResNetBackbone(ResNetBackboneBase):
 
@@ -109,12 +113,13 @@ class DYConvResNet(ResNetBase):
         self.backbone = DYConvResNetBackbone(n_layers, stride)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
+
 ## ibn-a-resnet-v1
 class IBNResNetBackboneA(ResNetBackboneBase):
 
-    def __init__(self, n_layers=50, stride=32, use_blur_pool=False):
+    def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False):
         super(IBNResNetBackboneA, self).__init__(
-                n_layers=n_layers, stride=stride, ibn='a', act_type='relu',
+                in_chan=in_chan, n_layers=n_layers, stride=stride, ibn='a', act_type='relu',
                 use_blur_pool=use_blur_pool
                 )
 
@@ -123,7 +128,7 @@ class IBNResNetA(ResNetBase):
 
     def __init__(self, n_layers=50, stride=32, n_classes=1000, use_blur_pool=False):
         super(IBNResNetA, self).__init__()
-        self.backbone = IBNResNetBackboneA(n_layers, stride, use_blur_pool=use_blur_pool)
+        self.backbone = IBNResNetBackboneA(n_layers=n_layers, use_blur_pool=use_blur_pool)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
 
@@ -137,9 +142,9 @@ class IBNResNetDenseCLA(ResNetDenseCLBase):
 ## ibn-b-resnet-v1
 class IBNResNetBackboneB(ResNetBackboneBase):
 
-    def __init__(self, n_layers=50, stride=32, use_blur_pool=False):
+    def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False):
         super(IBNResNetBackboneB, self).__init__(
-                n_layers=n_layers, stride=stride, ibn='b', act_type='relu',
+                in_chan=in_chan, n_layers=n_layers, stride=stride, ibn='b', act_type='relu',
                 use_blur_pool=use_blur_pool
                 )
 
@@ -148,7 +153,7 @@ class IBNResNetB(ResNetBase):
 
     def __init__(self, n_layers=50, stride=32, n_classes=1000, use_blur_pool=False):
         super(IBNResNetB, self).__init__()
-        self.backbone = IBNResNetBackboneB(n_layers, stride, use_blur_pool=use_blur_pool)
+        self.backbone = IBNResNetBackboneB(n_layers=n_layers, use_blur_pool=use_blur_pool)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
 

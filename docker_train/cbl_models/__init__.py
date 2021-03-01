@@ -14,6 +14,9 @@ from .xception_v2 import Xception41, Xception65, Xception71, Xception
 from .spinenet import SpineNetClassificationWrapper
 from .bisenetv2 import BiSeNetV2TrainWrapper
 
+# also import backbones
+from .resnet import ResNetBackbone, IBNResNetBackboneA, IBNResNetBackboneB
+
 
 def build_model(model_args):
     model_type = model_args['model_type']
