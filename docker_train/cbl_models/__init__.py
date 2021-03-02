@@ -10,12 +10,13 @@ from .resnet import (ResNet, SEResNet, ASKCResNet,
         IBNResNetDenseCLA, IBNResNetDenseCLB)
 from .pa_resnet import PAResNet, SE_PAResNet
 from .ushape_effnet import UShapeEffNetB0ClassificationWrapper
-from .xception_v2 import Xception41, Xception65, Xception71, Xception
+from .xception_v2 import Xception41, Xception65, Xception71
 from .spinenet import SpineNetClassificationWrapper
 from .bisenetv2 import BiSeNetV2TrainWrapper
 
 # also import backbones
 from .resnet import ResNetBackbone, IBNResNetBackboneA, IBNResNetBackboneB
+from .xception_v2 import XceptionBackbone
 
 
 def build_model(model_args):
