@@ -141,13 +141,13 @@ class Block(nn.Module):
 
 class EntryFlow(nn.Module):
 
-    def __init__(self, strides=[2, 2, 2], chans=[128, 256, 728]):
+    def __init__(self, in_chan=3, strides=[2, 2, 2], chans=[128, 256, 728]):
         super(EntryFlow, self).__init__()
         assert len(strides) == len(chans)
         in_chans, out_chans = self.compute_params(chans)
         self.aux_idx = [4, 7] if len(strides) == 3 else [7, 13]
 
-        self.conv1 = BNReLUConv(3, 32, 3, 2, 1) # 1/2
+        self.conv1 = BNReLUConv(in_chan, 32, 3, 2, 1) # 1/2
         self.conv2 = BNReLUConv(32, 64, 3, 1, 1)
 
         self.layers = nn.ModuleList()
@@ -214,7 +214,7 @@ class ExitFlow(nn.Module):
 
 class XceptionBackbone(nn.Module):
 
-    def __init__(self, n_layers='41', stride=32):
+    def __init__(self, in_chan=3, n_layers='41', stride=32):
         super(XceptionBackbone, self).__init__()
         assert stride in (8, 16, 32) and n_layers in ('41', '65', '71')
         params = BOTTLENECK_PARAMS['xception_{}'.format(n_layers)]
@@ -230,7 +230,7 @@ class XceptionBackbone(nn.Module):
             ent_strides[-1], dilation_mid = 1, 2
         self.n_chans = (256, 728, 1024, 2048)
 
-        self.entry_flow = EntryFlow(ent_strides, ent_chans)
+        self.entry_flow = EntryFlow(in_chan, ent_strides, ent_chans)
         self.middle_flow = MiddleFlow(n_mid_blocks, n_mid_chans,
                 dilation=dilation_mid)
         self.exit_flow = ExitFlow(strides=ext_strides,
