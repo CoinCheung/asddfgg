@@ -239,9 +239,10 @@ class Bottleneck(nn.Module):
 
         #  self.downsample = None
         if in_chan != out_chan or stride != 1:
-            if use_blur_pool and stride == 2:
+            #  if use_blur_pool and stride == 2:
+            if use_blur_pool:
                 self.downsample = nn.Sequential(
-                    BlurPool(in_chan, stride=2),
+                    BlurPool(in_chan, stride=stride),
                     build_conv(conv_type, in_chan, out_chan, kernel_size=1, stride=1, bias=False),
                     nn.BatchNorm2d(out_chan))
 
