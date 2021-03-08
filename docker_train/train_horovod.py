@@ -12,8 +12,8 @@ import math
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-import torch.distributed as dist
 import torch.cuda.amp as amp
+import horovod.torch as hvd
 
 from cbl_models import build_model
 from imagenet.imagenet_cv2 import ImageNet
@@ -31,15 +31,19 @@ from cross_entropy import (
         SoftmaxCrossEntropyV1
     )
 
+'''
+    Currently there are two problems about horovod with pytorch:
+    1. sync-bn is not implemented
+    2. fp16 is not supported well. When the first step is escaped, there will be errors saying that optim.step() is called before optim.zero_grad()
+'''
 
 #  from config.spinenet49 import *
 #  from config.spinenet49s import *
 #  from config.pa_resnet50 import *
 #  from config.pa_resnet101 import *
 #  from config.resnet50 import *
-from config.ibn_b_resnet50_blur_ca import *
 #  from config.resnet101 import *
-#  from config.resnet101_blur import *
+from config.resnet101_blur import *
 #  from config.frelu_resnet50 import *
 #  from config.frelu_resnet101 import *
 #  from config.xception41 import *
@@ -141,7 +145,7 @@ def main():
     ## dataloader
     dataset_train = ImageNet(datapth, mode='train', cropsize=cropsize)
     sampler_train = torch.utils.data.distributed.DistributedSampler(
-        dataset_train, shuffle=True)
+        dataset_train, shuffle=True, num_replicas=hvd.size(), rank=hvd.rank())
     batch_sampler_train = torch.utils.data.sampler.BatchSampler(
         sampler_train, batchsize, drop_last=True
     )
@@ -150,7 +154,7 @@ def main():
     )
     dataset_eval = ImageNet(datapth, mode='val', cropsize=cropsize)
     sampler_val = torch.utils.data.distributed.DistributedSampler(
-        dataset_eval, shuffle=False)
+        dataset_eval, shuffle=False, num_replicas=hvd.size(), rank=hvd.rank())
     batch_sampler_val = torch.utils.data.sampler.BatchSampler(
         sampler_val, batchsize * 1, drop_last=False
     )
@@ -176,6 +180,8 @@ def main():
     optim, scheduler = set_optimizer(model,
             opt_type, opt_args, schdlr_type, schdlr_args)
     scheduler.update_by_iter(n_iters_per_epoch)
+    optim = hvd.DistributedOptimizer(optim, named_parameters=model.named_parameters())
+    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
 
     ## mixed precision
     scaler = amp.GradScaler()
@@ -184,10 +190,10 @@ def main():
     ema = EMA(model, ema_alpha)
 
     ## ddp training
-    local_rank = dist.get_rank()
-    model = nn.parallel.DistributedDataParallel(
-        model, device_ids=[local_rank, ], output_device=local_rank
-    )
+    local_rank = hvd.rank()
+    #  model = nn.parallel.DistributedDataParallel(
+    #      model, device_ids=[local_rank, ], output_device=local_rank
+    #  )
 
     ## log meters
     time_meter = TimeMeter(n_iters)
@@ -211,7 +217,7 @@ def main():
             #  im, lb = cutmixer(im, lb)
 
             optim.zero_grad()
-            with amp.autocast(enabled=use_mixed_precision):
+            with amp.autocast(enabled=True):
                 logits = model(im)
                 loss = crit(logits, lb) #+ cal_l2_loss(model, weight_decay)
             scaler.scale(loss).backward()
@@ -240,7 +246,7 @@ def main():
             acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
             msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
             logger.info(msg)
-    if dist.is_initialized() and dist.get_rank() == 0:
+    if hvd.rank() == 0:
         #  torch.save(model.module.state_dict(), './res/model_final_naive.pth')
         #  torch.save(ema.ema_model.state_dict(), './res/model_final_ema.pth')
         torch.save(model.module.get_states(), './res/model_final_naive.pth')
@@ -266,19 +272,9 @@ def parse_args():
     return parse.parse_args()
 
 
-def init_dist(args):
-    torch.cuda.set_device(args.local_rank)
-    dist.init_process_group(
-        backend='nccl',
-        init_method='env://',
-        world_size=torch.cuda.device_count(),
-        rank=args.local_rank
-    )
-
-
 if __name__ == '__main__':
     args = parse_args()
-    init_dist(args)
+    hvd.init()
+    torch.cuda.set_device(hvd.local_rank())
     setup_logger(model_args['model_type'], './res/')
     main()
-    dist.barrier()

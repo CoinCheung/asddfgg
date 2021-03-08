@@ -16,10 +16,11 @@ from .resnet_base import ResNetBackboneBase, ResNetBase, ResNetDenseCLBase
 ## resnet-v1
 class ResNetBackbone(ResNetBackboneBase):
 
-    def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False):
+    def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False, use_ca=False):
         super(ResNetBackbone, self).__init__(
                 in_chan=in_chan, n_layers=n_layers, stride=stride,
-                use_blur_pool=use_blur_pool
+                use_blur_pool=use_blur_pool,
+                use_ca=use_ca
                 )
 
 
@@ -117,18 +118,19 @@ class DYConvResNet(ResNetBase):
 ## ibn-a-resnet-v1
 class IBNResNetBackboneA(ResNetBackboneBase):
 
-    def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False):
+    def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False, use_ca=False):
         super(IBNResNetBackboneA, self).__init__(
                 in_chan=in_chan, n_layers=n_layers, stride=stride, ibn='a', act_type='relu',
-                use_blur_pool=use_blur_pool
+                use_blur_pool=use_blur_pool,
+                use_ca=use_ca
                 )
 
 
 class IBNResNetA(ResNetBase):
 
-    def __init__(self, n_layers=50, stride=32, n_classes=1000, use_blur_pool=False):
+    def __init__(self, n_layers=50, stride=32, n_classes=1000, use_blur_pool=False, use_ca=False):
         super(IBNResNetA, self).__init__()
-        self.backbone = IBNResNetBackboneA(n_layers=n_layers, use_blur_pool=use_blur_pool)
+        self.backbone = IBNResNetBackboneA(n_layers=n_layers, use_blur_pool=use_blur_pool, use_ca=use_ca)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
 
@@ -142,18 +144,19 @@ class IBNResNetDenseCLA(ResNetDenseCLBase):
 ## ibn-b-resnet-v1
 class IBNResNetBackboneB(ResNetBackboneBase):
 
-    def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False):
+    def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False, use_ca=False):
         super(IBNResNetBackboneB, self).__init__(
                 in_chan=in_chan, n_layers=n_layers, stride=stride, ibn='b', act_type='relu',
-                use_blur_pool=use_blur_pool
+                use_blur_pool=use_blur_pool,
+                use_ca=use_ca
                 )
 
 
 class IBNResNetB(ResNetBase):
 
-    def __init__(self, n_layers=50, stride=32, n_classes=1000, use_blur_pool=False):
+    def __init__(self, n_layers=50, stride=32, n_classes=1000, use_blur_pool=False, use_ca=False):
         super(IBNResNetB, self).__init__()
-        self.backbone = IBNResNetBackboneB(n_layers=n_layers, use_blur_pool=use_blur_pool)
+        self.backbone = IBNResNetBackboneB(n_layers=n_layers, use_blur_pool=use_blur_pool, use_ca=use_ca)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
 

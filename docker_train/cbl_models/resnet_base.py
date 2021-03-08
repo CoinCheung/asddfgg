@@ -87,6 +87,30 @@ class SEBlock(nn.Module):
         return out
 
 
+class CABlock(nn.Module):
+
+    def __init__(self, in_chan, out_chan, ratio=32):
+        super(CABlock, self).__init__()
+        mid_chan = max(8, in_chan // ratio)
+        self.conv_cat = ConvBlock(in_chan, mid_chan, 1, 1, 0)
+        self.conv_h = nn.Conv2d(mid_chan, out_chan, 1, 1, 0, bias=True)
+        self.conv_w = nn.Conv2d(mid_chan, out_chan, 1, 1, 0, bias=True)
+
+    def forward(self, x):
+        n, c, h, w = x.size()
+        x_h = torch.mean(x, dim=(2,)).view(n, c, w, 1)
+        x_w = torch.mean(x, dim=(3,)).view(n, c, h, 1)
+        x_att = torch.cat([x_h, x_w], dim=2)
+        x_att = self.conv_cat(x_att)
+
+        x_att_h, x_att_w = x_att.split([h, w], dim=2)
+        x_att_h = self.conv_h(x_att_h).sigmoid()
+        x_att_w = self.conv_w(x_att_w).sigmoid()
+        att = x_att_h.view(n, c, 1, w) * x_att_w
+        out = x * att
+        return out
+
+
 class ASKCFuse(nn.Module):
 
     def __init__(self, in_chan=64, ratio=16):
@@ -187,6 +211,7 @@ class Bottleneck(nn.Module):
                  conv_type='nn',
                  act_type='relu',
                  use_se=False,
+                 use_ca=False,
                  ibn='none',
                  use_blur_pool=False,
                  use_askc=False):
@@ -194,6 +219,7 @@ class Bottleneck(nn.Module):
 
         stride1x1, stride3x3 = (stride, 1) if stride_at_1x1 else (1, stride)
         assert out_chan % 4 == 0
+        assert not (use_ca and use_se)
         mid_chan = out_chan // 4
 
         self.conv1 = build_conv(conv_type, in_chan,
@@ -230,29 +256,25 @@ class Bottleneck(nn.Module):
                             kernel_size=1,
                             bias=False)
         self.bn3 = nn.BatchNorm2d(out_chan)
-        self.bn3.last_bn = True if not use_se else False
+        self.bn3.last_bn = False if (use_se or use_ca) else True
         #  self.relu = nn.ReLU(inplace=True)
 
-        self.use_se = use_se
+        self.use_se, self.use_ca = use_se, use_ca
         if use_se:
             self.se_att = SEBlock(out_chan, 16, conv_type=conv_type)
+        if use_ca:
+            self.ca_att = CABlock(out_chan, out_chan, 32)
 
-        #  self.downsample = None
+        self.downsample = None
         if in_chan != out_chan or stride != 1:
-            #  if use_blur_pool and stride == 2:
+            skip_stride, self.skip_blur = stride, None
             if use_blur_pool:
-                self.downsample = nn.Sequential(
-                    BlurPool(in_chan, stride=stride),
-                    build_conv(conv_type, in_chan, out_chan, kernel_size=1, stride=1, bias=False),
-                    nn.BatchNorm2d(out_chan))
-
-            else:
-                self.downsample = nn.Sequential(
-                    build_conv(conv_type, in_chan, out_chan, kernel_size=1, stride=stride, bias=False),
-                    nn.BatchNorm2d(out_chan)
+                skip_stride = 1
+                self.skip_blur = BlurPool(in_chan, stride=stride)
+            self.downsample = nn.Sequential(
+                build_conv(conv_type, in_chan, out_chan, kernel_size=1, stride=skip_stride, bias=False),
+                nn.BatchNorm2d(out_chan)
             )
-        else:
-            self.downsample = nn.Identity()
 
         self.use_askc = use_askc
         if use_askc:
@@ -280,10 +302,14 @@ class Bottleneck(nn.Module):
 
         if self.use_se:
             residual = self.se_att(residual)
+        if self.use_ca:
+            residual = self.ca_att(residual)
 
-        #  inten = x
-        #  if not self.downsample is None:
-        inten = self.downsample(x)
+        inten = x
+        if not self.downsample is None:
+            if not self.skip_blur is None:
+                x = self.skip_blur(x)
+            inten = self.downsample(x)
 
         if self.use_askc:
             out = self.sc_fuse(residual, inten)
@@ -300,18 +326,18 @@ class Bottleneck(nn.Module):
 
 
 def create_stage(in_chan, out_chan, b_num, stride=1, dilation=1,
-            use_se=False, use_askc=False, conv_type='nn', act_type='relu',
+            use_ca=False, use_se=False, use_askc=False, conv_type='nn', act_type='relu',
             ibn='none', use_blur_pool=False):
     assert out_chan % 4 == 0
     block_ibn = 'none' if ibn == 'b' else ibn
     blocks = [Bottleneck(in_chan, out_chan, stride=stride, dilation=dilation,
-                use_se=use_se, use_askc=use_askc,
+                use_ca=use_ca, use_se=use_se, use_askc=use_askc,
                 conv_type=conv_type, act_type=act_type, ibn=block_ibn,
                 use_blur_pool=use_blur_pool),]
     for i in range(1, b_num):
         block_ibn = 'none' if ibn == 'b' and i < b_num - 1 else ibn
         blocks.append(Bottleneck(out_chan, out_chan, stride=1,
-                    dilation=dilation, use_se=use_se, use_askc=use_askc,
+                    dilation=dilation, use_ca=use_ca, use_se=use_se, use_askc=use_askc,
                     conv_type=conv_type, act_type=act_type, ibn=block_ibn,
                     use_blur_pool=use_blur_pool))
     return nn.Sequential(*blocks)
@@ -320,7 +346,7 @@ def create_stage(in_chan, out_chan, b_num, stride=1, dilation=1,
 
 class ResNetBackboneBase(nn.Module):
 
-    def __init__(self, in_chan=3, n_layers=50, stride=32, use_se=False, use_askc=False, conv_type='nn', act_type='relu', ibn='none', res_type='naive', use_blur_pool=False):
+    def __init__(self, in_chan=3, n_layers=50, stride=32, use_se=False, use_ca=False, use_askc=False, conv_type='nn', act_type='relu', ibn='none', stem_type='naive', use_blur_pool=False):
         super(ResNetBackboneBase, self).__init__()
         assert stride in (8, 16, 32)
         dils = [1, 1] if stride == 32 else [el*(16//stride) for el in (1, 2)]
@@ -332,7 +358,7 @@ class ResNetBackboneBase(nn.Module):
         else:
             raise NotImplementedError
 
-        self.res_type = res_type
+        self.stem_type = stem_type
         ## ibn
         ibns = ['none', 'none', 'none', 'none']
         if ibn == 'a':
@@ -340,7 +366,7 @@ class ResNetBackboneBase(nn.Module):
         elif ibn == 'b':
             ibns = ['b', 'b', 'none', 'none']
 
-        if self.res_type == 'naive':
+        if self.stem_type == 'naive':
             #  self.bn0 = nn.BatchNorm2d(3)
             conv_type0 = conv_type
             if conv_type == 'dy': conv_type0 = 'nn'
@@ -353,11 +379,11 @@ class ResNetBackboneBase(nn.Module):
             self.relu = build_act(act_type, chan=64)
             #  relu = FReLU(64)
             #  self.conv1 = nn.Sequential(conv1, bn1, relu)
-        elif self.res_type == 'res_d':
+        elif self.stem_type == 'res_d':
             self.conv1 = nn.Sequential(
                 ConvBlock(in_chan, 32, 3, 2, 1),
                 ConvBlock(32, 32, 3, 1, 1),
-                ConvBlock(32, 64, 3, 1, 1))
+                nn.Conv2d(32, 64, 3, 1, 1, bias=False))
 
         if not use_blur_pool:
             self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1,
@@ -368,17 +394,17 @@ class ResNetBackboneBase(nn.Module):
                     BlurPool(64, stride=2))
 
         self.layer1 = create_stage(64, 256, layers[0], stride=1, dilation=1,
-                    use_se=use_se, use_askc=use_askc, conv_type=conv_type,
+                    use_ca=use_ca, use_se=use_se, use_askc=use_askc, conv_type=conv_type,
                     act_type=act_type, ibn=ibns[0], use_blur_pool=use_blur_pool)
         self.layer2 = create_stage(256, 512, layers[1], stride=2, dilation=1,
-                    use_se=use_se, use_askc=use_askc, conv_type=conv_type,
+                    use_ca=use_ca, use_se=use_se, use_askc=use_askc, conv_type=conv_type,
                     act_type=act_type, ibn=ibns[1], use_blur_pool=use_blur_pool)
         self.layer3 = create_stage(512, 1024, layers[2], stride=strds[0],
-                    dilation=dils[0], use_se=use_se, use_askc=use_askc,
+                    dilation=dils[0], use_ca=use_ca, use_se=use_se, use_askc=use_askc,
                     conv_type=conv_type, act_type=act_type, ibn=ibns[2],
                     use_blur_pool=use_blur_pool)
         self.layer4 = create_stage(1024, 2048, layers[3], stride=strds[1],
-                    dilation=dils[1], use_se=use_se, use_askc=use_askc,
+                    dilation=dils[1], use_ca=use_ca, use_se=use_se, use_askc=use_askc,
                     conv_type=conv_type, act_type=act_type, ibn=ibns[3],
                     use_blur_pool=use_blur_pool)
 
@@ -390,9 +416,8 @@ class ResNetBackboneBase(nn.Module):
     def forward(self, x):
         #  x = self.bn0(x)
         x = self.conv1(x)
-        if self.res_type == 'naive':
-            x = self.bn1(x)
-            x = self.relu(x)
+        x = self.bn1(x)
+        x = self.relu(x)
         x = self.maxpool(x)
         feat4 = self.layer1(x)
         feat8 = self.layer2(feat4)

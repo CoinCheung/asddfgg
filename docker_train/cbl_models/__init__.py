@@ -24,6 +24,7 @@ def build_model(model_args):
     model_args_ = deepcopy(model_args)
     model_args_.pop('model_type')
     model = eval(model_type)(**model_args_)
+    init_model_weights(model)
     return model
 
 
