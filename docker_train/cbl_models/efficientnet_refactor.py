@@ -83,6 +83,29 @@ class SEBlock(nn.Module):
         return atten * x
 
 
+class CABlock(nn.Module):
+
+    def __init__(self, in_chan, out_chan, ratio=32):
+        super(CABlock, self).__init__()
+        mid_chan = max(8, in_chan // ratio)
+        self.conv_cat = ConvBNAct(in_chan, mid_chan, 1, 1, 0)
+        self.conv_h = nn.Conv2d(mid_chan, out_chan, 1, 1, 0, bias=True)
+        self.conv_w = nn.Conv2d(mid_chan, out_chan, 1, 1, 0, bias=True)
+
+    def forward(self, x):
+        n, c, h, w = x.size()
+        x_h = torch.mean(x, dim=(2,)).view(n, c, w, 1)
+        x_w = torch.mean(x, dim=(3,)).view(n, c, h, 1)
+        x_att = torch.cat([x_h, x_w], dim=2)
+        x_att = self.conv_cat(x_att)
+
+        x_att_h, x_att_w = x_att.split([h, w], dim=2)
+        x_att_h = self.conv_h(x_att_h).sigmoid()
+        x_att_w = self.conv_w(x_att_w).sigmoid()
+        att = x_att_h.view(n, c, 1, w) * x_att_w
+        out = x * att
+        return out
+
 class MBConv(nn.Module):
 
     def __init__(self, in_chan, out_chan, ks, stride=1, expand_ratio=1,
