@@ -9,43 +9,43 @@ import torch.nn.functional as F
 from torch.nn import Conv2d
 #  from .conv_ops import Conv2dWS as Conv2d
 
-from .resnet_base import ResNetBackboneBase, ResNetBase, ResNetDenseCLBase
+from .resnet_base import ResNetBackbone, ResNetBase, ResNetDenseCLBase
 
 
 
 ## resnet-v1
-class ResNetBackbone(ResNetBackboneBase):
-
-    def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False, use_ca=False):
-        super(ResNetBackbone, self).__init__(
-                in_chan=in_chan, n_layers=n_layers, stride=stride,
-                use_blur_pool=use_blur_pool,
-                use_ca=use_ca
-                )
-
+#  class ResNetBackbone(ResNetBackboneBase):
+#
+#      def __init__(self, in_chan=3, n_layers=50, stride=32, use_blur_pool=False, use_ca=False):
+#          super(ResNetBackbone, self).__init__(
+#                  in_chan=in_chan, n_layers=n_layers, stride=stride,
+#                  use_blur_pool=use_blur_pool,
+#                  use_ca=use_ca
+#                  )
+#
 
 
 class ResNet(ResNetBase):
 
     def __init__(self, n_layers=50, stride=32, n_classes=1000, use_blur_pool=False):
         super(ResNet, self).__init__()
-        self.backbone = ResNetBackbone(n_layers=n_layers, use_blur_pool=use_blur_pool)
+        self.backbone = ResNetBackbone(stride=stride, n_layers=n_layers, use_blur_pool=use_blur_pool)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
 
 ## se-resnet-v1
-class SEResNetBackbone(ResNetBackboneBase):
-
-    def __init__(self, n_layers=50, stride=32):
-        super(SEResNetBackbone, self).__init__(
-                n_layers=n_layers, stride=stride, use_se=True)
+#  class SEResNetBackbone(ResNetBackboneBase):
+#
+#      def __init__(self, n_layers=50, stride=32):
+#          super(SEResNetBackbone, self).__init__(
+#                  n_layers=n_layers, stride=stride, use_se=True)
 
 
 class SEResNet(ResNetBase):
 
     def __init__(self, n_layers=50, stride=32, n_classes=1000):
         super(SEResNet, self).__init__()
-        self.backbone = SEResNetBackbone(n_layers, stride)
+        self.backbone = ResNetBackbone(in_chan=3, stride=stride, n_layers=n_layers, use_blur_pool=use_blur_pool)
         self.classifier = nn.Linear(2048, n_classes, bias=True)
 
 

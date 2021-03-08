@@ -5,9 +5,10 @@ import torch.nn as nn
 
 from .efficientnet_refactor import EfficientNet
 from .efficientnet_lite import EfficientNetLite
-from .resnet import (ResNet, SEResNet, ASKCResNet,
-        WAResNet, FReLUResNet, DYConvResNet, IBNResNetA, IBNResNetB,
-        IBNResNetDenseCLA, IBNResNetDenseCLB)
+from .resnet import ResNet
+#  from .resnet import (ResNet, SEResNet, ASKCResNet,
+#          WAResNet, FReLUResNet, DYConvResNet, IBNResNetA, IBNResNetB,
+#          IBNResNetDenseCLA, IBNResNetDenseCLB)
 from .pa_resnet import PAResNet, SE_PAResNet
 from .ushape_effnet import UShapeEffNetB0ClassificationWrapper
 from .xception_v2 import Xception41, Xception65, Xception71
@@ -15,7 +16,8 @@ from .spinenet import SpineNetClassificationWrapper
 from .bisenetv2 import BiSeNetV2TrainWrapper
 
 # also import backbones
-from .resnet import ResNetBackbone, IBNResNetBackboneA, IBNResNetBackboneB
+#  from .resnet import ResNetBackbone, IBNResNetBackboneA, IBNResNetBackboneB
+from .resnet_base import ResNetBackbone
 from .xception_v2 import XceptionBackbone
 
 
