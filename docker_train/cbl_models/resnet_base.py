@@ -350,6 +350,8 @@ class ResNetBackbone(nn.Module):
             use_ca=False, use_askc=False, conv_type='nn', act_type='relu',
             ibn='none', stem_type='naive', use_blur_pool=False):
         super(ResNetBackbone, self).__init__()
+        self.conv_type = conv_type
+
         assert stride in (8, 16, 32)
         dils = [1, 1] if stride == 32 else [el*(16//stride) for el in (1, 2)]
         strds = [2 if el == 1 else 1 for el in dils]
@@ -441,12 +443,13 @@ class ResNetBackbone(nn.Module):
             layer.eval()
 
 
-class ResNetBase(nn.Module):
+class ResNet(nn.Module):
 
     def __init__(self, n_classes=1000, in_chan=3, n_layers=50, stride=32,
             use_se=False, use_ca=False, use_askc=False, conv_type='nn',
             act_type='relu', ibn='none', stem_type='naive', use_blur_pool=False):
-        super(ResNetBase, self).__init__()
+        super(ResNet, self).__init__()
+        self.conv_type = conv_type
         self.backbone = ResNetBackbone(in_chan=in_chan, n_layers=n_layers,
                 stride=stride, use_se=use_se, use_ca=use_ca, use_askc=use_askc,
                 conv_type=conv_type, act_type=act_type, ibn=ibn,
@@ -472,7 +475,7 @@ class ResNetBase(nn.Module):
 
 
 ### for denseCL pretrain
-class ResNetDenseCLBase(nn.Module):
+class ResNetDenseCL(nn.Module):
 
     def __init__(self, dim, n_classes):
         super(ResNetDenseCLBase, self).__init__()
