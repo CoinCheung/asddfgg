@@ -64,7 +64,7 @@ class ConvBlock(nn.Module):
                            bias=bias)
         self.norm = nn.BatchNorm2d(out_chan)
         self.act = nn.ReLU(inplace=True)
-        self.init_weight()
+        nn.init.kaiming_normal_(self.conv.weight)
 
     def forward(self, x):
         x = self.conv(x)
@@ -72,10 +72,9 @@ class ConvBlock(nn.Module):
         x = self.act(x)
         return x
 
-    def init_weight(self):
-        nn.init.kaiming_normal_(self.conv.weight)
-        if not self.conv.bias is None:
-            nn.init.constant_(self.conv.bias, 0)
+    def fuse_conv_bn(self):
+        self.conv = torch.nn.utils.fuse_conv_bn_eval(self.conv, self.norm)
+        self.norm = nn.Identity()
 
 
 class BasicBlock(nn.Module):

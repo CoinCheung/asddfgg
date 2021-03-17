@@ -111,7 +111,7 @@ def build_model(model_args):
 
 def init_model_weights(model):
     #  if isinstance(model, (WAResNet, )): return
-    if model.conv_type == 'wa': return
+    if hasattr(model, 'conv_type') and model.conv_type == 'wa': return
     for name, module in model.named_modules():
         if isinstance(module, nn.Conv2d):
             fan_out = module.kernel_size[0] * module.kernel_size[1] * module.out_channels

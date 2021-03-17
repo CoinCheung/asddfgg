@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+#  from .involution import InvolutionV1, InvolutionV3
 import functools
 
 from pytorch_loss import DY_Conv2d
@@ -396,4 +397,12 @@ def build_conv(conv_type, in_chan, out_chan, kernel_size,
         conv = DY_Conv2d(in_chan, out_chan, kernel_size, stride=stride,
                 padding=padding, dilation=dilation, groups=groups,
                 bias=bias, act=nn.ReLU(inplace=True), K=4, **kwargs)
+    #  elif conv_type == 'invol_v1':
+    #      assert in_chan == out_chan
+    #      assert dilation == 1
+    #      conv = InvolutionV1(in_chan, kernel_size, stride)
+    #  elif conv_type == 'invol_v3':
+    #      assert in_chan == out_chan
+    #      assert dilation == 1
+    #      conv = InvolutionV3(in_chan, kernel_size, stride)
     return conv

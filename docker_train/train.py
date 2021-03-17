@@ -37,7 +37,8 @@ from cross_entropy import (
 #  from config.pa_resnet50 import *
 #  from config.pa_resnet101 import *
 #  from config.resnet50 import *
-#  from config.ibn_b_resnet50_blur_ca import *
+#  from config.resnet50_invol import *
+#  from config.resnet50_blur import *
 #  from config.resnet101 import *
 #  from config.resnet101_blur import *
 #  from config.frelu_resnet50 import *
@@ -55,10 +56,12 @@ from cross_entropy import (
 #  from config.bisenetv2 import *
 #  from config.ibn_a_resnet50 import *
 #  from config.ibn_b_resnet50 import *
-from config.ibn_a_resnet101 import *
+#  from config.ibn_a_resnet101 import *
 #  from config.ibn_b_resnet101 import *
 #  from config.ibn_a_resnet101_blur import *
 #  from config.ibn_b_resnet101_blur import *
+#  from config.ibn_b_resnet50_blur_ca import *
+from config.ibn_b_resnet50_blur import *
 
 
 #  from config.effnetb0 import *

@@ -310,10 +310,19 @@ ibn_resnet101d-a:
 
 ibn_a_resnet101-blur: 78.58/94.34/79.06/94.64
 ibn_b_resnet101-blur: 78.65/94.39/79.11/94.57
-resnet101-blur: 77.79/93.83/78.28/94.1
-resnet101: 77.78/93.98/77.76/93.97
-resnet50:
+resnet101-blur: 77.79/93.83/78.28/94.1 
+上面有可能要重来: 
+resnet50, on_bn0: 6128: 76.73/93.29/76.46/93.28
+resnet50_blur:77.11/93.56/77.57/93.69
+resnet101, no_bn0: 619: 77.80/93.89/77.92/93.96
+resnet101_blur: 619: 77.92/94.06/78.51/94.25
+ibn_b_resnet101-blur: 6128: 78.22/94.01/78.61/94.36 -- 再eval一下
+ibn_b_resnet50-blur: 77.18/93.60/77.61/93.80
+ibn_a_resnet50-blur: 6128: 77.62/94.01/78.20/94.19
+ibn_a_resnet50:
 
+
+TODO: 所以的都加上fuse_conv_bn这样的操作
 
 
 把effnet的fc改名成classifier，统一一下: 

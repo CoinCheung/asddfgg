@@ -13,11 +13,13 @@ from imagenet.imagenet_cv2 import ImageNet
 #  from config.effnetb0_lite import *
 #  from config.effnetb2_lite import *
 #  from config.resnet101 import *
+from config.resnet101_blur import *
 #  from config.frelu_resnet101 import *
-from config.ibn_a_resnet50 import *
+#  from config.ibn_a_resnet50 import *
 
 
-ckpt_path = './res/model_final_naive_r50_ibn_a.pth'
+ckpt_path = './res/model_final_naive.pth'
+#  ckpt_path = '/root/pretrained/not_uploaded/model_final_ema_r101_blur.pth'
 
 def evaluate(model, dl_eval):
     acc_1, acc_5 = eval_model(model, dl_eval)
@@ -67,6 +69,8 @@ def main():
     #  model.load_state_dict(torch.load('./res/model_final.pth', map_location='cpu'))
     #  model.load_state_dict(sd, strict=True)
     model.load_states(sd)
+    model.eval()
+    model.fuse_conv_bn()
     model.cuda()
 
     batchsize = 256
