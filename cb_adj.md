@@ -318,8 +318,10 @@ resnet101, no_bn0: 619: 77.80/93.89/77.92/93.96
 resnet101_blur: 619: 77.92/94.06/78.51/94.25
 ibn_b_resnet101-blur: 6128: 78.22/94.01/78.61/94.36 -- 再eval一下
 ibn_b_resnet50-blur: 77.18/93.60/77.61/93.80
+ibn_a_resnet50: 77.40/93.82/77.52/93.76
 ibn_a_resnet50-blur: 6128: 77.62/94.01/78.20/94.19
-ibn_a_resnet50:
+ibn_a_resnet101: 
+ibn_a_resnet101-blur: 
 
 
 TODO: 所以的都加上fuse_conv_bn这样的操作
