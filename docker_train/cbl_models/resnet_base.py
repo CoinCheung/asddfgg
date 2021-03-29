@@ -412,6 +412,7 @@ class ResNetBackbone(nn.Module):
                     mid_type=mid_type, conv_type=conv_type, act_type=act_type, ibn=ibns[3],
                     use_blur_pool=use_blur_pool)
 
+        self.out_chans = [256, 512, 1024, 2048]
         #  init_weight(self)
         self.layers = []
         #  self.register_freeze_layers()

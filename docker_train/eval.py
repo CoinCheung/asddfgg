@@ -13,13 +13,13 @@ from imagenet.imagenet_cv2 import ImageNet
 #  from config.effnetb0_lite import *
 #  from config.effnetb2_lite import *
 #  from config.resnet101 import *
-from config.resnet101_blur import *
 #  from config.frelu_resnet101 import *
 #  from config.ibn_a_resnet50 import *
+#  from config.ibn_b_resnet101_blur import *
+from config.repvgg_a2 import *
 
 
 ckpt_path = './res/model_final_naive.pth'
-#  ckpt_path = '/root/pretrained/not_uploaded/model_final_ema_r101_blur.pth'
 
 def evaluate(model, dl_eval):
     acc_1, acc_5 = eval_model(model, dl_eval)
@@ -70,8 +70,13 @@ def main():
     #  model.load_state_dict(sd, strict=True)
     model.load_states(sd)
     model.eval()
-    model.fuse_conv_bn()
+    if hasattr(model, 'fuse_block'):
+        model.fuse_block()
+    if hasattr(model, 'fuse_conv_bn'):
+        model.fuse_conv_bn()
     model.cuda()
+    #  if dist.get_rank() == 0:
+    #      print(model)
 
     batchsize = 256
     ds = ImageNet(datapth, mode='val', cropsize=cropsize)

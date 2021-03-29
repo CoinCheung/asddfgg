@@ -262,6 +262,11 @@ taylor-softmax: -- 都是没有lbsmooth的，所以跟model_zoo不太一样
     上面做完了，再试一下large-margin吧，看是在imagenet上也有用
 
 
+repvgg-a2: 75.26/92.52/75.53/92.6
+repvgg-b0: 74.26/91.96/74.39/91.88
+去掉warmup, repvgg-b0:
+    74.24/91.75/74.13/91.74
+
 densecl:
 
 ======
@@ -318,10 +323,15 @@ resnet101, no_bn0: 619: 77.80/93.89/77.92/93.96
 resnet101_blur: 619: 77.92/94.06/78.51/94.25
 ibn_b_resnet101-blur: 6128: 78.22/94.01/78.61/94.36 -- 再eval一下
 ibn_b_resnet50-blur: 77.18/93.60/77.61/93.80
+ibn_b_resnet50: 73.28/91.40/72.51/90.84 -- 再来
 ibn_a_resnet50: 77.40/93.82/77.52/93.76
 ibn_a_resnet50-blur: 6128: 77.62/94.01/78.20/94.19
-ibn_a_resnet101: 
-ibn_a_resnet101-blur: 
+ibn_a_resnet101: 78.51/94.23/78.93/94.44
+ibn_a_resnet101-blur: 78.45/94.36/79.21/94.62
+
+ibn_b_resnet50: 
+    正常: 73.28/91.40/72.51/90.84 -- 再来
+    去掉last_bn:
 
 
 TODO: 所以的都加上fuse_conv_bn这样的操作

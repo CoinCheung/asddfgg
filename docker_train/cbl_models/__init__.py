@@ -14,11 +14,13 @@ from .ushape_effnet import UShapeEffNetB0ClassificationWrapper
 from .xception_v2 import Xception41, Xception65, Xception71
 from .spinenet import SpineNetClassificationWrapper
 from .bisenetv2 import BiSeNetV2TrainWrapper
+from .repvgg import RepVGG
 
 # also import backbones
 #  from .resnet import ResNetBackbone, IBNResNetBackboneA, IBNResNetBackboneB
 from .resnet_base import ResNetBackbone
 from .xception_v2 import XceptionBackbone
+from .repvgg import RepVGGBackbone
 
 
 def build_model(model_args):
