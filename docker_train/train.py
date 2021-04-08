@@ -61,7 +61,8 @@ from cross_entropy import (
 #  from config.ibn_a_resnet101_blur import *
 #  from config.ibn_b_resnet101_blur import *
 #  from config.ibn_b_resnet50_blur_ca import *
-from config.ibn_b_resnet50_blur import *
+#  from config.ibn_b_resnet50_blur import *
+from config.ibn_b_resnet50_d import *
 
 
 #  from config.effnetb0 import *

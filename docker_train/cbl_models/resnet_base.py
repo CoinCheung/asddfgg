@@ -139,67 +139,6 @@ class ASKCFuse(nn.Module):
         return feat_fuse
 
 
-class LambdaLayer(nn.Module):
-    def __init__(self, in_chan, out_chan, dim_k, n=None, r=None, heads=4, dim_u=1):
-        super(LambdaLayer, self).__init__()
-
-        assert (out_chan % heads) == 0, 'values dimension must be divisible by number of heads for multi-head query'
-        dim_v = out_chan // heads
-
-        self.to_q = nn.Conv2d(in_chan, dim_k * heads, 1, bias=False)
-        self.to_k = nn.Conv2d(in_chan, dim_k * dim_u, 1, bias=False)
-        self.to_v = nn.Conv2d(in_chan, dim_v * dim_u, 1, bias=False)
-
-        self.norm_q = nn.BatchNorm2d(dim_k * heads)
-        self.norm_v = nn.BatchNorm2d(dim_v * dim_u)
-
-        self.local_contexts = not r is None
-        if self.local_contexts:
-            assert (r % 2) == 1, 'Receptive kernel size should be odd'
-            self.pos_conv = nn.Conv3d(dim_u, dim_k, (1, r, r),
-                    padding=(0, r // 2, r // 2))
-        else:
-            assert (not n is None), 'You must specify the total sequence length (h x w)'
-            self.pos_emb = nn.Parameter(torch.randn(n, n, dim_k, dim_u))
-
-        self.heads = heads
-        self.dim_u = dim_u # intra-depth dimension
-        self.dim_k = dim_k
-        self.dim_v = dim_v
-
-
-    def forward(self, x):
-        b, c, hh, ww, u, h = *x.shape, self.dim_u, self.heads
-
-        q = self.to_q(x)
-        k = self.to_k(x)
-        v = self.to_v(x)
-
-        q = self.norm_q(q)
-        v = self.norm_v(v)
-
-        q = q.view(b, h, self.dim_k, -1)
-        k = k.view(b, u, self.dim_k, -1)
-        v = v.view(b, u, self.dim_v, -1)
-
-        k = k.softmax(dim=-1)
-
-        lam_c = torch.einsum('bukm,buvm->bkv', k, v)
-        y_c = torch.einsum('bhkn,bkv->bnhv', q, lam_c)
-
-        if self.local_contexts:
-            v = v.view(b, u, -1, hh, ww)
-            lam_p = self.pos_conv(v)
-            y_p = torch.einsum('bhkn,bkvn->bnhv', q, lam_p.flatten(3))
-        else:
-            lam_p = torch.einsum('nmku,buvm->bnkv', self.pos_emb, v)
-            y_p = torch.einsum('bhkn,bnkv->bnhv', q, lam_p)
-
-        y = y_c + y_p
-        out = y.view(b, hh, ww, -1).permute(0, 3, 1, 2)
-        return out.contiguous()
-
-
 class Bottleneck(nn.Module):
 
     def __init__(self,
@@ -271,7 +210,7 @@ class Bottleneck(nn.Module):
         self.downsample = None
         if in_chan != out_chan or stride != 1:
             skip_stride, self.skip_blur = stride, None
-            if use_blur_pool:
+            if use_blur_pool and stride3x3 == 2:
                 skip_stride = 1
                 self.skip_blur = BlurPool(in_chan, stride=stride)
             self.downsample = nn.Sequential(
@@ -431,8 +370,12 @@ class ResNetBackbone(nn.Module):
                 midconv = nn.Sequential(
                         build_conv(mid_type, 32, 32, 3, 1, 1, bias=False),
                         nn.BatchNorm2d(32), build_act(act_type, chan=32))
+            self.blur_pool, first_stride = nn.Identity(), 2
+            if use_blur_pool:
+                self.blur_pool = BlurPool(in_chan, stride=2)
+                first_stride = 1
             self.conv1 = nn.Sequential(
-                ConvBlock(in_chan, 32, 3, 2, 1),
+                ConvBlock(in_chan, 32, 3, first_stride, 1),
                 midconv,
                 nn.Conv2d(32, 64, 3, 1, 1, bias=False))
 

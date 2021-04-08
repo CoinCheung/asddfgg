@@ -20,7 +20,7 @@ from .repvgg import RepVGG
 #  from .resnet import ResNetBackbone, IBNResNetBackboneA, IBNResNetBackboneB
 from .resnet_base import ResNetBackbone
 from .xception_v2 import XceptionBackbone
-from .repvgg import RepVGGBackbone
+from .repvgg import RepVGGBackBone
 
 
 def build_model(model_args):
