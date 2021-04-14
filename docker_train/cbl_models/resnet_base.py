@@ -210,7 +210,7 @@ class Bottleneck(nn.Module):
         self.downsample = None
         if in_chan != out_chan or stride != 1:
             skip_stride, self.skip_blur = stride, None
-            if use_blur_pool and stride3x3 == 2:
+            if use_blur_pool and stride == 2:
                 skip_stride = 1
                 self.skip_blur = BlurPool(in_chan, stride=stride)
             self.downsample = nn.Sequential(
@@ -308,7 +308,7 @@ class ResNetBackbone(nn.Module):
 
     def __init__(self, in_chan=3, n_layers=50, stride=32, use_se=False,
             use_ca=False, use_askc=False, conv_type='nn', mid_type='nn', act_type='relu',
-            ibn='none', stem_type='naive', use_blur_pool=False):
+            ibn='none', stem_type='naive', use_blur_pool=False, out1024=False):
         super(ResNetBackbone, self).__init__()
         self.mid_type = mid_type
         self.ibn = ibn
@@ -334,6 +334,8 @@ class ResNetBackbone(nn.Module):
         self.create_stem(in_chan, stem_type, conv_type, ibn,
                 act_type, use_blur_pool)
 
+        last_out_chan = 1024 if out1024 else 2048
+
         self.layer1 = create_stage(64, 256, layers[0], stride=1, dilation=1,
                     use_ca=use_ca, use_se=use_se, use_askc=use_askc, conv_type=conv_type,
                     mid_type=mid_type, act_type=act_type, ibn=ibns[0],
@@ -346,12 +348,12 @@ class ResNetBackbone(nn.Module):
                     dilation=dils[0], use_ca=use_ca, use_se=use_se, use_askc=use_askc,
                     mid_type=mid_type, conv_type=conv_type, act_type=act_type, ibn=ibns[2],
                     use_blur_pool=use_blur_pool)
-        self.layer4 = create_stage(1024, 2048, layers[3], stride=strds[1],
+        self.layer4 = create_stage(1024, last_out_chan, layers[3], stride=strds[1],
                     dilation=dils[1], use_ca=use_ca, use_se=use_se, use_askc=use_askc,
                     mid_type=mid_type, conv_type=conv_type, act_type=act_type, ibn=ibns[3],
                     use_blur_pool=use_blur_pool)
 
-        self.out_chans = [256, 512, 1024, 2048]
+        self.out_chans = [256, 512, 1024, last_out_chan]
         #  init_weight(self)
         self.layers = []
         #  self.register_freeze_layers()
@@ -434,7 +436,7 @@ class ResNet(nn.Module):
                 stride=stride, use_se=use_se, use_ca=use_ca, use_askc=use_askc,
                 conv_type=conv_type, mid_type=mid_type, act_type=act_type,
                 ibn=ibn, stem_type=stem_type, use_blur_pool=use_blur_pool)
-        self.classifier = nn.Linear(2048, n_classes, bias=True)
+        self.classifier = nn.Linear(self.backbone.out_chans[-1], n_classes, bias=True)
 
     def forward(self, x):
         feat = self.backbone(x)[-1]
@@ -463,7 +465,11 @@ class ResNet(nn.Module):
 ### for denseCL pretrain
 class ResNetDenseCL(nn.Module):
 
-    def __init__(self, dim, n_classes):
+    def __init__(self, dim, n_classes=1000, in_chan=3, n_layers=50,
+            stride=32,
+            use_se=False, use_ca=False, use_askc=False, conv_type='nn',
+            mid_type='nn', act_type='relu', ibn='none', stem_type='naive',
+            use_blur_pool=False):
         super(ResNetDenseCLBase, self).__init__()
         self.backbone = ResNetBackbone(in_chan=in_chan, n_layers=n_layers,
                 stride=stride, use_se=use_se, use_ca=use_ca, use_askc=use_askc,
@@ -492,10 +498,35 @@ class ResNetDenseCL(nn.Module):
 
     def load_states(self, state):
         self.backbone.load_state_dict(state['backbone'])
-        self.fc.load_state_dict(state['classifier'])
-        self.dense_head.load_state_dict(state['classifier'])
+        self.fc.load_state_dict(state['fc'])
+        self.dense_head.load_state_dict(state['dense_head'])
 
 
+### for pixpro pretrain
+class ResNetPixPro(nn.Module):
+
+    def __init__(self, in_chan=3, n_layers=50, stride=32,
+            use_se=False, use_ca=False, use_askc=False, conv_type='nn',
+            mid_type='nn', act_type='relu', ibn='none', stem_type='naive',
+            use_blur_pool=False):
+        super(ResNetPixPro, self).__init__()
+        self.backbone = ResNetBackbone(in_chan=in_chan, n_layers=n_layers,
+                stride=stride, use_se=use_se, use_ca=use_ca, use_askc=use_askc,
+                conv_type=conv_type, act_type=act_type, ibn=ibn,
+                stem_type=stem_type, use_blur_pool=use_blur_pool)
+
+    def forward(self, x):
+        feat = self.backbone(x)[-1]
+        return feat
+
+    def get_states(self):
+        state = dict(
+            backbone=self.backbone.state_dict(),
+        )
+        return state
+
+    def load_states(self, state):
+        self.backbone.load_state_dict(state['backbone'])
 
 if __name__ == "__main__":
     #  layer1 = create_stage(64, 256, 3, 1, 1)

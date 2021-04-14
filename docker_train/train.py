@@ -90,9 +90,10 @@ from config.ibn_b_resnet50_d import *
 ### 所以多卡的时候, 学习率还是跟单卡一样调整, 整体batchsize变大之后, lr也要放大
 
 
-random.seed(123)
-np.random.seed(123)
-torch.manual_seed(123)
+init_seed = 123
+random.seed(init_seed)
+np.random.seed(init_seed)
+torch.manual_seed(init_seed)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = True
 #  torch.multiprocessing.set_sharing_strategy('file_system') # this would make it stuck when program is done
@@ -149,8 +150,12 @@ def main():
     batch_sampler_train = torch.utils.data.sampler.BatchSampler(
         sampler_train, batchsize, drop_last=True
     )
+    worker_init_fn = lambda wid: np.random.seed(
+            np.random.get_state()[1][0] + worker_id)
     dl_train = DataLoader(
-        dataset_train, batch_sampler=batch_sampler_train, num_workers=num_workers, pin_memory=True
+        dataset_train, batch_sampler=batch_sampler_train,
+        num_workers=num_workers, pin_memory=True,
+        worker_init_fn=worker_init_fn
     )
     dataset_eval = ImageNet(datapth, mode='val', cropsize=cropsize)
     sampler_val = torch.utils.data.distributed.DistributedSampler(
@@ -206,6 +211,7 @@ def main():
     ## train loop
     for e in range(n_epoches):
         sampler_train.set_epoch(e)
+        np.random.set_epoch(init_seed + e)
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
             im, lb= im.cuda(non_blocking=True), lb.cuda(non_blocking=True)

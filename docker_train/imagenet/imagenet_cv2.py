@@ -92,9 +92,10 @@ if __name__ == "__main__":
         ds,
         shuffle=True,
         batch_size=256,
-        num_workers=4,
+        num_workers=8,
         pin_memory=True,
     )
     for ims, lbs in dltrain:
-        print(ims.size())
-        print(lbs.size())
+        pass
+        #  print(ims.size())
+        #  print(lbs.size())

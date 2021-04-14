@@ -39,8 +39,12 @@ class BlurPool(nn.Module):
             filt = torch.tensor([1., 6., 15., 20., 15., 6., 1.])
 
         # fix padding to 5
-        self.padding = 2
-        filt = torch.tensor([1., 4., 6., 4., 1.])
+        #  self.padding = 2
+        #  filt = torch.tensor([1., 4., 6., 4., 1.])
+        # fix padding to 3
+        self.padding = 1
+        filt = torch.tensor([1., 2., 1.])
+
         filt = torch.einsum('ik,kj->ij', filt[:,None], filt[None,:])
         filt = filt / torch.sum(filt)
         filt = filt[None,None,:,:].repeat((self.channels,1,1,1)).detach()
