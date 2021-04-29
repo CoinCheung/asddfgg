@@ -317,7 +317,9 @@ class ResNetBackbone(nn.Module):
         assert stride in (8, 16, 32)
         dils = [1, 1] if stride == 32 else [el*(16//stride) for el in (1, 2)]
         strds = [2 if el == 1 else 1 for el in dils]
-        if n_layers == 50:
+        if n_layers == 38:
+            layers = [2, 3, 5, 2]
+        elif n_layers == 50:
             layers = [3, 4, 6, 3]
         elif n_layers == 101:
             layers = [3, 4, 23, 3]

@@ -219,14 +219,14 @@ class SegmentBranch(nn.Module):
             GELayerS1(32, 32, rd_ratio=0.0),
         )
         self.S4 = nn.Sequential(
-            GELayerS2(32, 64, rd_ratio=0.05),
-            GELayerS1(64, 64, rd_ratio=0.05),
+            GELayerS2(32, 64, rd_ratio=0.0),
+            GELayerS1(64, 64, rd_ratio=0.0),
         )
         self.S5_4 = nn.Sequential(
-            GELayerS2(64, 128, rd_ratio=0.1),
-            GELayerS1(128, 128, rd_ratio=0.1),
-            GELayerS1(128, 128, rd_ratio=0.15),
-            GELayerS1(128, 128, rd_ratio=0.15),
+            GELayerS2(64, 128, rd_ratio=0.0),
+            GELayerS1(128, 128, rd_ratio=0.0),
+            GELayerS1(128, 128, rd_ratio=0.0),
+            GELayerS1(128, 128, rd_ratio=0.0),
         )
         self.S5_5 = CEBlock()
 

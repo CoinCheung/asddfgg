@@ -151,7 +151,7 @@ def main():
         sampler_train, batchsize, drop_last=True
     )
     worker_init_fn = lambda wid: np.random.seed(
-            np.random.get_state()[1][0] + worker_id)
+            np.random.get_state()[1][0] + wid)
     dl_train = DataLoader(
         dataset_train, batch_sampler=batch_sampler_train,
         num_workers=num_workers, pin_memory=True,
@@ -211,7 +211,7 @@ def main():
     ## train loop
     for e in range(n_epoches):
         sampler_train.set_epoch(e)
-        np.random.set_epoch(init_seed + e)
+        np.random.seed(init_seed + e)
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
             im, lb= im.cuda(non_blocking=True), lb.cuda(non_blocking=True)

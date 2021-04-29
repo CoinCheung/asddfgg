@@ -253,8 +253,8 @@ class RepVGG(nn.Module):
         return state
 
     def load_states(self, state):
-        self.backbone.load_state_dict(state['backbone'])
-        self.classifier.load_state_dict(state['classifier'])
+        self.backbone.load_state_dict(state['backbone'], strict=True)
+        self.classifier.load_state_dict(state['classifier'], strict=True)
 
     @torch.no_grad()
     def fuse_block(self):

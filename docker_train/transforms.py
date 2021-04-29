@@ -223,7 +223,11 @@ class CenterCrop(object):
 
 class RandomHorizontalFlip(object):
 
+    def __init__(self, p=0.5):
+        self.p = p
+
     def __call__(self, img):
+        if random.random() > self.p: return img
         return img[:, ::-1, :]
 
 
