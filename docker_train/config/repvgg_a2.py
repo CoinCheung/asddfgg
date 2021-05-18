@@ -1,11 +1,11 @@
 
 n_gpus = 8
-batchsize = 256
+batchsize = 32
 n_epoches = 120
 n_eval_epoch = 1
 opt_type = 'SGD'
 opt_args = dict(
-        lr=0.05 * (batchsize / 128) * n_gpus,
+        lr=0.1 * (batchsize / 256) * n_gpus,
         weight_decay=1e-4, nesterov=True, momentum=0.9)
 schdlr_type = 'CosineLr'
 schdlr_args = dict(
@@ -17,7 +17,7 @@ datapth = './imagenet/'
 cropsize = 224
 num_workers = 4
 ema_alpha = 0.9999
-use_mixed_precision = True
+use_mixed_precision = False
 use_sync_bn = False
 use_mixup = True
 mixup_alpha = 0.4

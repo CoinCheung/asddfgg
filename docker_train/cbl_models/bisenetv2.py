@@ -146,13 +146,13 @@ class GELayerS1(nn.Module):
         )
         self.conv2[1].last_bn = True
         self.relu = nn.ReLU(inplace=True)
-        self.random_depth = RandomDepth(rd_ratio)
+        #  self.random_depth = RandomDepth(rd_ratio)
 
     def forward(self, x):
         feat = self.conv1(x)
         feat = self.dwconv(feat)
         feat = self.conv2(feat)
-        feat = self.random_depth(feat)
+        #  feat = self.random_depth(feat)
         feat = feat + x
         feat = self.relu(feat)
         return feat
@@ -195,14 +195,14 @@ class GELayerS2(nn.Module):
                 nn.BatchNorm2d(out_chan),
         )
         self.relu = nn.ReLU(inplace=True)
-        self.random_depth = RandomDepth(rd_ratio)
+        #  self.random_depth = RandomDepth(rd_ratio)
 
     def forward(self, x):
         feat = self.conv1(x)
         feat = self.dwconv1(feat)
         feat = self.dwconv2(feat)
         feat = self.conv2(feat)
-        feat = self.random_depth(feat)
+        #  feat = self.random_depth(feat)
         shortcut = self.shortcut(x)
         feat = feat + shortcut
         feat = self.relu(feat)
@@ -467,6 +467,13 @@ class BiSeNetV2TrainWrapperDenseCL(nn.Module):
                 else:
                     nn.init.ones_(module.weight)
                 nn.init.zeros_(module.bias)
+
+    def get_states(self):
+        state = {
+            name: child.state_dict()
+            for name, child in self.named_children()
+            }
+        return state
 
 
 if __name__ == "__main__":

@@ -182,7 +182,7 @@ class Bottleneck(nn.Module):
         else:
             self.blur_pool = nn.Identity()
 
-        mid_ks = 7 if mid_type.startswith('invol_v') else 3
+        #  mid_ks = 7 if mid_type.startswith('invol_v') else 3
         self.conv2 = build_conv(mid_type, mid_chan,
                             mid_chan,
                             kernel_size=mid_ks,

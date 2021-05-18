@@ -62,7 +62,13 @@ from cross_entropy import (
 #  from config.ibn_b_resnet101_blur import *
 #  from config.ibn_b_resnet50_blur_ca import *
 #  from config.ibn_b_resnet50_blur import *
-from config.ibn_b_resnet50_d import *
+#  from config.ibn_b_resnet50_d import *
+#  from config.repvgg_a0 import *
+#  from config.repvgg_a1 import *
+#  from config.repvgg_a2 import *
+from config.repvgg_b0 import *
+#  from config.repvgg_b1 import *
+#  from config.repvgg_b2 import *
 
 
 #  from config.effnetb0 import *
@@ -114,15 +120,18 @@ def cal_l2_loss(model, weight_decay):
 
 
 def set_optimizer(model, opt_type, opt_args, schdlr_type, schdlr_args):
-    wd_params, non_wd_params = [], []
-    for name, param in model.named_parameters():
-        param_len = param.dim()
-        if param_len == 4 or param_len == 2:
-            wd_params.append(param)
-        elif param_len == 1:
-            non_wd_params.append(param)
-        else:
-            print(name)
+    if hasattr(model, 'get_params'):
+        wd_params, non_wd_params = model.get_params()
+    else:
+        wd_params, non_wd_params = [], []
+        for name, param in model.named_parameters():
+            param_len = param.dim()
+            if param_len == 4 or param_len == 2:
+                wd_params.append(param)
+            elif param_len == 1:
+                non_wd_params.append(param)
+            else:
+                print(name)
     params_list = [
         {'params': wd_params},
         {'params': non_wd_params, 'weight_decay': 0},
@@ -245,7 +254,7 @@ def main():
             scheduler.step()
         torch.cuda.empty_cache()
         if (e + 1) % n_eval_epoch == 0:
-            if e > 50: n_eval_epoch = 5
+            #  if e > 50: n_eval_epoch = 5
             logger.info('evaluating...')
             acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
             msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)

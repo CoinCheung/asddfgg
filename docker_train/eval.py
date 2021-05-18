@@ -16,10 +16,12 @@ from imagenet.imagenet_cv2 import ImageNet
 #  from config.frelu_resnet101 import *
 #  from config.ibn_a_resnet50 import *
 #  from config.ibn_b_resnet101_blur import *
-from config.repvgg_a2 import *
+from config.repvgg_a1 import *
+#  from config.repvgg_a2 import *
 
 
-ckpt_path = './res/model_final_naive.pth'
+#  ckpt_path = './res/model_final_naive.pth'
+ckpt_path = '/root/model_final_naive_repvgg_a1.pth'
 
 def evaluate(model, dl_eval):
     acc_1, acc_5 = eval_model(model, dl_eval)

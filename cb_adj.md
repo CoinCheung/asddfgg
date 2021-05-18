@@ -277,17 +277,41 @@ optimizer使用官方的: 72.23/90.66/71.60/90.30
 修正自己的hflip: 72.28/90.68/71.63/90.33
 使用bs=32的:72.03
 
+a0的fp32:
+a1的: bs=256,fp16: 74.46/91.78/: bs=32,fp16: 74.03/91.73, bs=32,fp32: 74.09
+a2的: 76.31/93.05/76.4/93.05 -- 再来bs=32,fp16: 76.04, 调整get_params再来76.38, 
+    fp16+bs256: 76.07 -- 76.08
+    fp16+bs32: 76.17
+    fp32+bs32: 76.44
+结论: 一定是fp32+bs32才能复现，其他配置不能复现
+a1, fp32+bs32: 74.21
+b0, fp16+bs256: 74.9, bs=32+fp32: --目标75.14
+b1, fp16+bs128:  -- 目标78.37
+b2, fp16+bs128: -- 目标78.78
+
+
 eval-epoch改成1，看最大的那个epoch是多少:
     改成inter-linear: 72.06
 修正hflip使用自己的optimizer: 
     dim==1的不带wd: 72.15/72.32
     都带wd: 69.97/69.99
+    修正flip, 使用官方optimizer的逻辑，fp16: 72.18/72.22
+    上面的使用fp32: 72.33/
 
 densecl:
 
 rednet的involution:
     rednet38_ibn_b: 75.65/92.63/75.77/92.67
     resnet38_ibn_b: 74.58/92.16/74.67/92.19
+        74.8/92.15/74.9/92.23
+    resnet38_ibn_b_sepconv: 75.06/92.25/75.13/92.27
+
+    rednet38: 75.68/92.45/75.73/92.53
+    resnet38: 75.95/92.81/76.02/92.89
+        75.64/92.82/75.80/92.83
+    resnet38_sepconv: 75.28/92.38/75.29/92.50
+    结论: 
+        involution在分类上有的时候有用，有的时候没用，加上ibn之后有用，普通的cnn没用
 
 
 ======
@@ -385,6 +409,8 @@ hs-r50:
     3. effnet-b6训练了44天，xception65只要3天，所以大模型的话，effnet不是很好，不发xception
     4. xception41只比xception65低0.6个点，xception65只比xception71低0.1个点，所以最好的是41
     5. taylor-softmax的loss比exp-softmax的大一点，所以taylor引入的正则更强一些
+    6. ema和random-depth不适合用来pretrain，加这两个之后在下游任务上会掉点
+    7. 其他正则加强了之后要适当减小wd，比如同时有ra, rd, dropout的时候要减小wd
 
 effnet改成把conv_out从backbone里面拿出去:  
 effnet把conv和conv_ws版本分开: 
