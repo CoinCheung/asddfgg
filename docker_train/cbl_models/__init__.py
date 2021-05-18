@@ -13,7 +13,7 @@ from .pa_resnet import PAResNet, SE_PAResNet
 from .ushape_effnet import UShapeEffNetB0ClassificationWrapper
 from .xception_v2 import Xception41, Xception65, Xception71
 from .spinenet import SpineNetClassificationWrapper
-from .bisenetv2 import BiSeNetV2TrainWrapper
+from .bisenetv2 import BiSeNetV2TrainWrapper, BiSeNetV2TrainWrapperDenseCL
 from .repvgg import RepVGG
 
 # also import backbones
