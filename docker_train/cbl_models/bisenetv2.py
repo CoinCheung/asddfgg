@@ -434,7 +434,7 @@ class BiSeNetV2TrainWrapperDenseCL(nn.Module):
                 ConvBNReLU(128, 256, 3, 2, 1),
                 ConvBNReLU(256, 1024, 1, 1, 0))
 
-        self.classifier = nn.Linear(1024, n_classes)
+        self.fc = nn.Linear(1024, n_classes)
         self.dense_head = nn.Sequential(
                 nn.Conv2d(1024, 1024, 1, 1, 0, bias=True),
                 nn.ReLU(inplace=True),
@@ -452,7 +452,7 @@ class BiSeNetV2TrainWrapperDenseCL(nn.Module):
         feat_head = self.head(feat_head)
 
         feat_gap = torch.mean(feat_head, dim=(2, 3))
-        logits = self.classifier(feat_gap)
+        logits = self.fc(feat_gap)
         dense = self.dense_head(feat_head)
         return logits, dense, feat_head
 

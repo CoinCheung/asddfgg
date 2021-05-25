@@ -283,9 +283,18 @@ a2的: 76.31/93.05/76.4/93.05 -- 再来bs=32,fp16: 76.04, 调整get_params再来
     fp16+bs256: 76.07 -- 76.08
     fp16+bs32: 76.17
     fp32+bs32: 76.44
-结论: 一定是fp32+bs32才能复现，其他配置不能复现
+结论: 
+    * 一定是fp32+bs32才能复现，其他配置不能复现
+    * 要把nesterov换成false才行
 a1, fp32+bs32: 74.21
-b0, fp16+bs256: 74.9, bs=32+fp32: --目标75.14
+b0, --目标75.14
+    fp16+bs256: 74.9, 
+    bs=32+fp32: 74.96, 
+    nesterov=False: 75.22 
+    恢复bs=256,fp16加上nesterov=False: 74.87
+    fp16+bs32, nesterov=False: 75
+    fp32+bs32, nesterov=False: 
+    
 b1, fp16+bs128:  -- 目标78.37
 b2, fp16+bs128: -- 目标78.78
 
@@ -298,7 +307,17 @@ eval-epoch改成1，看最大的那个epoch是多少:
     修正flip, 使用官方optimizer的逻辑，fp16: 72.18/72.22
     上面的使用fp32: 72.33/
 
-densecl:
+修正resnet-d:
+resnet-rs的trick都加上:
+看lookahead + adamw是否能加快收敛?
+
+densecl, resnet50, 100ep, 看sgdm_adamw+lookahead是否能加快收敛:
+    sgd的: 82.7/58.5/65.6
+    adamw+lookahead: nan
+    sgdm_adamw+lookahead: nan
+        lr=0.03:
+    
+
 
 rednet的involution:
     rednet38_ibn_b: 75.65/92.63/75.77/92.67
@@ -312,6 +331,7 @@ rednet的involution:
     resnet38_sepconv: 75.28/92.38/75.29/92.50
     结论: 
         involution在分类上有的时候有用，有的时候没用，加上ibn之后有用，普通的cnn没用
+        更新: 基本上没用，分类和分割上都没用
 
 
 ======
@@ -386,7 +406,6 @@ ibn_b_resnet38: 75.65/92.63/75.77/92.67
 
 
 
-TODO: 所以的都加上fuse_conv_bn这样的操作
 
 
 把effnet的fc改名成classifier，统一一下: 
