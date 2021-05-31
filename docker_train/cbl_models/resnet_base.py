@@ -185,7 +185,7 @@ class Bottleneck(nn.Module):
         #  mid_ks = 7 if mid_type.startswith('invol_v') else 3
         self.conv2 = build_conv(mid_type, mid_chan,
                             mid_chan,
-                            kernel_size=mid_ks,
+                            kernel_size=3,
                             stride=stride3x3,
                             padding=dilation,
                             dilation=dilation,

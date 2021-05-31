@@ -293,9 +293,11 @@ b0, --目标75.14
     nesterov=False: 75.22 
     恢复bs=256,fp16加上nesterov=False: 74.87
     fp16+bs32, nesterov=False: 75
-    fp32+bs32, nesterov=False: 
+    fp32+bs32, nesterov=False: 75.22/75.03
     
 b1, fp16+bs128:  -- 目标78.37
+    fp32+bs32, nesterov=False: 
+    
 b2, fp16+bs128: -- 目标78.78
 
 
@@ -333,6 +335,8 @@ rednet的involution:
         involution在分类上有的时候有用，有的时候没用，加上ibn之后有用，普通的cnn没用
         更新: 基本上没用，分类和分割上都没用
 
+把lbsmoot/ra都加到config里面去
+
 
 ======
 model_zoo:
@@ -358,6 +362,7 @@ pa-r50: 76.93/93.47/76.69/93.43
 pa-r101: 78.37/94.11/78.04/94.11
 se-r50: 78.74/94.31/78.81/94.40
 se-r101: 79.78/94.89/80.02/95.01
+ibn_b_r50_ra_lsr_200ep: 78.4/94.18/78.46/94.21
 pa-se-r50:
 pa-se-r101:
 dynamic-conv-r50:

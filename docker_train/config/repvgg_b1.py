@@ -6,7 +6,7 @@ n_eval_epoch = 1
 opt_type = 'SGD'
 opt_args = dict(
         lr=0.1 * (batchsize / 256) * n_gpus,
-        weight_decay=1e-4, nesterov=True, momentum=0.9)
+        weight_decay=1e-4, nesterov=False, momentum=0.9)
 schdlr_type = 'CosineLr'
 schdlr_args = dict(
         max_iter=n_epoches, eta_ratio=0.,

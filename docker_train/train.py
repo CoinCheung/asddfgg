@@ -36,7 +36,7 @@ from cross_entropy import (
 #  from config.spinenet49s import *
 #  from config.pa_resnet50 import *
 #  from config.pa_resnet101 import *
-#  from config.resnet50 import *
+from config.resnet50 import *
 #  from config.resnet50_invol import *
 #  from config.resnet50_blur import *
 #  from config.resnet101 import *
@@ -66,7 +66,7 @@ from cross_entropy import (
 #  from config.repvgg_a0 import *
 #  from config.repvgg_a1 import *
 #  from config.repvgg_a2 import *
-from config.repvgg_b0 import *
+#  from config.repvgg_b0 import *
 #  from config.repvgg_b1 import *
 #  from config.repvgg_b2 import *
 
@@ -186,8 +186,8 @@ def main():
 
     ## sync bn
     if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    crit = nn.CrossEntropyLoss()
-    #  crit = LabelSmoothSoftmaxCEV3(lb_smooth)
+    #  crit = nn.CrossEntropyLoss()
+    crit = LabelSmoothSoftmaxCEV3(lb_smooth)
     #  crit = SoftmaxCrossEntropyV1()
 
     ## optimizer
