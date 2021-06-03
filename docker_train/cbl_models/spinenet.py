@@ -351,7 +351,7 @@ class Merge(nn.Module):
 class SpineNet(nn.Module):
     """Class to build SpineNet backbone"""
     def __init__(self,
-                 model_type='49s', in_channels=3, output_level=[3, 4, 5, 6, 7],):
+                 model_type='49s', in_chan=3, output_level=[3, 4, 5, 6, 7],):
         super(SpineNet, self).__init__()
         self._block_specs = build_block_specs()[2:]
         self._endpoints_num_filters = SCALING_MAP[model_type]['endpoints_num_filters']
@@ -363,9 +363,10 @@ class SpineNet(nn.Module):
         assert min(output_level) > 2 and max(output_level) < 8, "Output level out of range"
         self.output_level = output_level
 
-        self._make_stem_layer(in_channels)
+        self._make_stem_layer(in_chan)
         self._make_scale_permuted_network()
         self._make_endpoints()
+        self.out_chans = [self._endpoints_num_filters for el in range(4)]
 
 
     def create_stage(self, block, in_chan, out_chan, b_num, stride=1):
@@ -455,7 +456,7 @@ class SpineNet(nn.Module):
             if spec.is_output:
                 output_feat[spec.level] = target_feat
 
-        return [self.endpoint_convs[str(level)](output_feat[level]) for level in self.output_level]
+        return [feat2, ] + [self.endpoint_convs[str(level)](output_feat[level]) for level in self.output_level]
 
 
 class SpineNetClassificationWrapper(nn.Module):
@@ -468,7 +469,7 @@ class SpineNetClassificationWrapper(nn.Module):
 
 
     def forward(self, x):
-        feat8, feat16, feat32, feat64, feat128 = self.backbone(x)
+        feat4, feat8, feat16, feat32, feat64, feat128 = self.backbone(x)
         tsize = feat64.size()[2:]
         feat = F.interpolate(feat128, size=tsize, mode='nearest') + feat64
 
@@ -496,14 +497,14 @@ class SpineNetClassificationWrapper(nn.Module):
 
 
 if __name__ == '__main__':
-    model = SpineNet('49s', output_level=[3, 4, 5])
+    model = SpineNet('49', output_level=[3, 4, 5])
     inten = torch.randn(2, 3, 224, 224)
     outs = model(inten)
     for out in outs:
         print(out.size())
-    torch.save(model.state_dict(), 'raw.pth')
-
-    model = SpineNetClassificationWrapper('49s', 1000)
-    inten = torch.randn(2, 3, 224, 224)
-    logits = model(inten)
-    print(logits.size())
+    #  torch.save(model.state_dict(), 'raw.pth')
+    #
+    #  model = SpineNetClassificationWrapper('49s', 1000)
+    #  inten = torch.randn(2, 3, 224, 224)
+    #  logits = model(inten)
+    #  print(logits.size())

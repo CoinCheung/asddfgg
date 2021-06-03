@@ -11,8 +11,5 @@ if __name__ == "__main__":
     outs = net(inten)
     for o in outs:
         print(o.size())
-    for name, param in resnet.named_parameters():
-        if 'bias' in name:
-            print(name)
 
 

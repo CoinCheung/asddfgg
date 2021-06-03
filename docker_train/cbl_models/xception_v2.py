@@ -228,7 +228,7 @@ class XceptionBackbone(nn.Module):
         elif stride == 8:
             ext_strides[0], dilation_ext = 1, [2, 4]
             ent_strides[-1], dilation_mid = 1, 2
-        self.n_chans = (256, 728, 1024, 2048)
+        self.out_chans = (256, 728, 1024, 2048)
 
         self.entry_flow = EntryFlow(in_chan, ent_strides, ent_chans)
         self.middle_flow = MiddleFlow(n_mid_blocks, n_mid_chans,
@@ -249,7 +249,7 @@ class Xception(nn.Module):
     def __init__(self, n_layers, n_classes=1000):
         super(Xception, self).__init__()
         self.backbone = XceptionBackbone(n_layers=n_layers, stride=32)
-        n_chan = self.backbone.n_chans[-1]
+        n_chan = self.backbone.out_chans[-1]
         self.classifier = nn.Linear(n_chan, n_classes)
 
     def forward(self, x):

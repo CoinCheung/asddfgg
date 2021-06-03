@@ -183,8 +183,6 @@ class Bottleneck(nn.Module):
                 build_conv(conv_type, in_chan, out_chan, kernel_size=1, stride=skip_stride, bias=False),
                 nn.BatchNorm2d(out_chan)
             )
-
-
         self.relu3 = build_act(act_type, out_chan)
 
 
@@ -331,9 +329,9 @@ class TransModule(nn.Module):
             if in_chan == out_chan:
                 layers.append(nn.Identity())
             else:
-                layers.append(ConvBlock(in_chan, in_chan, 3, 1, 1))
+                layers.append(ConvBlock(in_chan, out_chan, 3, 1, 1))
         self.layers = nn.ModuleList(layers)
-        self.trans_down = ConvBlock(in_chan, in_chan, 3, 2, 1)
+        self.trans_down = ConvBlock(in_chans[-1], out_chans[-1], 3, 2, 1)
         self.n_branches = len(in_chans)
 
     def forward(self, x):
@@ -391,6 +389,7 @@ class HRNetBackbone(nn.Module):
             Bottleneck(256, 256, stride=1),
             Bottleneck(256, 256, stride=1),
         )
+
         self.trans1 = TransModule(
                 in_chans=hparams['stage1'][3],
                 out_chans=hparams['stage2'][3])
@@ -479,10 +478,11 @@ if __name__ == "__main__":
     net = HRNetBackbone()
     inten = torch.randn(1, 3, 224, 224)
     outs = net(inten)
+    print(len(outs))
     for o in outs:
         print(o.size())
-    for name, param in resnet.named_parameters():
-        if 'bias' in name:
-            print(name)
+    #  for name, param in resnet.named_parameters():
+    #      if 'bias' in name:
+    #          print(name)
 
 

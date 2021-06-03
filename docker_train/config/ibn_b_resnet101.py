@@ -1,7 +1,7 @@
 
 n_gpus = 8
 batchsize = 128
-n_epoches = 100
+n_epoches = 200
 n_eval_epoch = 1
 opt_type = 'SGD'
 opt_args = dict(
@@ -11,7 +11,7 @@ schdlr_type = 'CosineLr'
 schdlr_args = dict(
         max_iter=n_epoches, eta_ratio=0.,
         warmup_iter=5, warmup='linear', warmup_ratio=0.05)
-model_args = dict(model_type='IBNResNetB', n_layers=101, n_classes=1000, use_blur_pool=False)
+model_args = dict(model_type='ResNet', n_layers=101, n_classes=1000, use_blur_pool=False)
 grad_clip_norm = 10
 datapth = './imagenet/'
 cropsize = 224
