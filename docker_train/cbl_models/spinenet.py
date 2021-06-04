@@ -459,6 +459,29 @@ class SpineNet(nn.Module):
         return [feat2, ] + [self.endpoint_convs[str(level)](output_feat[level]) for level in self.output_level]
 
 
+class SpineNetBackbone(nn.Module):
+
+    def __init__(self, model_type='49s'):
+        super(SpineNetBackbone, self).__init__()
+        self.backbone = SpineNet(model_type)
+        mid_chan = SCALING_MAP[model_type]['endpoints_num_filters']
+        self.out_chans = [mid_chan for _ in range(4)]
+
+
+    def forward(self, x):
+        feat4, feat8, feat16, feat32, feat64, feat128 = self.backbone(x)
+        tsize = feat64.size()[2:]
+        feat = F.interpolate(feat128, size=tsize, mode='nearest') + feat64
+
+        tsize = feat32.size()[2:]
+        feat = F.interpolate(feat, size=tsize, mode='nearest') + feat32
+
+        tsize = feat16.size()[2:]
+        feat = F.interpolate(feat, size=tsize, mode='nearest') + feat16
+
+        return feat4, feat8, feat16, feat
+
+
 class SpineNetClassificationWrapper(nn.Module):
 
     def __init__(self, model_type='49s', n_classes=1000):
@@ -497,7 +520,7 @@ class SpineNetClassificationWrapper(nn.Module):
 
 
 if __name__ == '__main__':
-    model = SpineNet('49', output_level=[3, 4, 5])
+    model = SpineNetBackbone('49')
     inten = torch.randn(2, 3, 224, 224)
     outs = model(inten)
     for out in outs:
