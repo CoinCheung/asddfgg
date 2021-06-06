@@ -325,13 +325,14 @@ class ResNet(nn.Module):
     def __init__(self, n_classes=1000, in_chan=3, n_layers=50, stride=32,
             use_se=False, use_ca=False, use_askc=False, conv_type='nn',
             mid_type='nn', act_type='relu', ibn='none', stem_type='naive',
-            use_blur_pool=False):
+            use_blur_pool=False, out1024=False):
         super(ResNet, self).__init__()
         self.conv_type = conv_type
         self.backbone = ResNetBackbone(in_chan=in_chan, n_layers=n_layers,
                 stride=stride, use_se=use_se, use_ca=use_ca, use_askc=use_askc,
                 conv_type=conv_type, mid_type=mid_type, act_type=act_type,
-                ibn=ibn, stem_type=stem_type, use_blur_pool=use_blur_pool)
+                ibn=ibn, stem_type=stem_type, use_blur_pool=use_blur_pool,
+                out1024=out1024)
         self.classifier = nn.Linear(self.backbone.out_chans[-1], n_classes, bias=True)
 
     def forward(self, x):

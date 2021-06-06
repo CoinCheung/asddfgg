@@ -1,4 +1,5 @@
 
+
 n_gpus = 8
 batchsize = 256
 n_epoches = 200
@@ -6,16 +7,22 @@ n_eval_epoch = 1
 opt_type = 'SGD'
 opt_args = dict(
         lr=0.1 * (batchsize / 128) * n_gpus,
-        weight_decay=1e-4, nesterov=True, momentum=0.9)
+        weight_decay=1e-4, nesterov=True, momentum=0.9
+        )
 schdlr_type = 'CosineLr'
 schdlr_args = dict(
         max_iter=n_epoches, eta_ratio=0.,
-        warmup_iter=5, warmup='linear', warmup_ratio=0.05)
-model_args = dict(model_type='ResNet', stem_type='naive', n_layers=50, n_classes=1000, use_blur_pool=False, out1024=True)
-grad_clip_norm = 10
-datapth = './imagenet/'
-cropsize = 224
+        warmup_iter=5, warmup='linear', warmup_ratio=0.05
+        )
+model_args = dict(model_type='ResNet', stem_type='naive',
+        n_layers=50, n_classes=1000, use_blur_pool=False, out1024=True
+        )
+dataset_args = dict(
+        ds_type='ImageNet', root = './datasets/imagenet/',
+        cropsize=224,
+        )
 num_workers = 4
+grad_clip_norm = 10
 ema_alpha = 0.9999
 use_mixed_precision = True
 use_sync_bn = False
