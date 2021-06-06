@@ -7,7 +7,10 @@ PORT=23365
 
 python -c 'import torch; print(torch.__version__)'
 
-python -m torch.distributed.launch --nproc_per_node=$N_GPUS --master_port=$PORT train.py
+cfg_file='./config/resnet_d_50.py'
+
+
+python -m torch.distributed.launch --nproc_per_node=$N_GPUS --master_port=$PORT train.py --config $cfg_file
 
 # python -m torch.distributed.launch --nproc_per_node=$N_GPUS --master_port=$PORT train_cdata.py
 

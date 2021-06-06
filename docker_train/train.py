@@ -17,9 +17,8 @@ import torch.cuda.amp as amp
 
 from cbl_models import build_model
 from data import get_dataset
-#  from data.imagenet_cv2 import ImageNet
-#  from imagenet.imagenet import ImageNet
 from eval import eval_model
+from config import set_cfg_from_file
 from meters import TimeMeter, AvgMeter
 from logger import setup_logger
 from ops import EMA, MixUper, CutMixer
@@ -38,7 +37,7 @@ from cross_entropy import (
 #  from config.pa_resnet50 import *
 #  from config.pa_resnet101 import *
 #  from config.resnet50 import *
-from config.resnet_d_50 import *
+#  from config.resnet_d_50 import *
 #  from config.resnet50_blur import *
 #  from config.resnet101 import *
 #  from config.resnet101_blur import *
@@ -97,6 +96,18 @@ from config.resnet_d_50 import *
 ### 所以多卡的时候, 学习率还是跟单卡一样调整, 整体batchsize变大之后, lr也要放大
 
 
+def parse_args():
+    parse = argparse.ArgumentParser()
+    parse.add_argument('--local_rank',
+                       dest='local_rank',
+                       type=int,
+                       default=-1,)
+    parse.add_argument('--config', dest='config', type=str, default='resnet50.py',)
+    return parse.parse_args()
+
+args = parse_args()
+cfg = set_cfg_from_file(args.config)
+
 init_seed = 123
 random.seed(init_seed)
 np.random.seed(init_seed)
@@ -151,58 +162,55 @@ def set_optimizer(model, opt_type, opt_args, schdlr_type, schdlr_args):
 
 
 def main():
-    global n_eval_epoch
 
     ## dataloader
-    dataset_train = get_dataset(dataset_args, mode='train')
-    #  dataset_train = dataset(datapth, mode='train', cropsize=cropsize)
+    dataset_train = get_dataset(cfg.dataset_args, mode='train')
     sampler_train = torch.utils.data.distributed.DistributedSampler(
         dataset_train, shuffle=True)
     batch_sampler_train = torch.utils.data.sampler.BatchSampler(
-        sampler_train, batchsize, drop_last=True
+        sampler_train, cfg.batchsize, drop_last=True
     )
     worker_init_fn = lambda wid: np.random.seed(
             np.random.get_state()[1][0] + wid)
     dl_train = DataLoader(
         dataset_train, batch_sampler=batch_sampler_train,
-        num_workers=num_workers, pin_memory=True,
+        num_workers=cfg.num_workers, pin_memory=True,
         worker_init_fn=worker_init_fn
     )
-    dataset_eval = get_dataset(dataset_args, mode='val')
-    #  dataset_eval = ImageNet(datapth, mode='val', cropsize=cropsize)
+    dataset_eval = get_dataset(cfg.dataset_args, mode='val')
     sampler_val = torch.utils.data.distributed.DistributedSampler(
         dataset_eval, shuffle=False)
     batch_sampler_val = torch.utils.data.sampler.BatchSampler(
-        sampler_val, batchsize * 1, drop_last=False
+        sampler_val, cfg.batchsize * 1, drop_last=False
     )
     dl_eval = DataLoader(
         dataset_eval, batch_sampler=batch_sampler_val,
         num_workers=4, pin_memory=True
     )
-    n_iters_per_epoch = len(dataset_train) // n_gpus // batchsize
-    n_iters = n_epoches * n_iters_per_epoch
+    n_iters_per_epoch = len(dataset_train) // cfg.n_gpus // cfg.batchsize
+    n_iters = cfg.n_epoches * n_iters_per_epoch
 
 
     ## model
-    model = build_model(model_args)
+    model = build_model(cfg.model_args)
     model.cuda()
 
     ## sync bn
-    if use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+    if cfg.use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     #  crit = nn.CrossEntropyLoss()
-    crit = LabelSmoothSoftmaxCEV3(lb_smooth)
+    crit = LabelSmoothSoftmaxCEV3(cfg.lb_smooth)
     #  crit = SoftmaxCrossEntropyV1()
 
     ## optimizer
     optim, scheduler = set_optimizer(model,
-            opt_type, opt_args, schdlr_type, schdlr_args)
+            cfg.opt_type, cfg.opt_args, cfg.schdlr_type, cfg.schdlr_args)
     scheduler.update_by_iter(n_iters_per_epoch)
 
     ## mixed precision
     scaler = amp.GradScaler()
 
     ## ema
-    ema = EMA(model, ema_alpha)
+    ema = EMA(model, cfg.ema_alpha)
 
     ## ddp training
     local_rank = dist.get_rank()
@@ -216,33 +224,34 @@ def main():
     logger = logging.getLogger()
 
     # for mixup
-    label_encoder = OnehotEncoder(n_classes=model_args['n_classes'], lb_smooth=lb_smooth)
-    mixuper = MixUper(mixup_alpha)
-    cutmixer = CutMixer(cutmix_beta)
+    label_encoder = OnehotEncoder(n_classes=cfg.model_args['n_classes'],
+            lb_smooth=cfg.lb_smooth)
+    mixuper = MixUper(cfg.mixup_alpha)
+    cutmixer = CutMixer(cfg.cutmix_beta)
 
     ## train loop
-    for e in range(n_epoches):
+    for e in range(cfg.n_epoches):
         sampler_train.set_epoch(e)
         np.random.seed(init_seed + e)
         model.train()
         for idx, (im, lb) in enumerate(dl_train):
             im, lb= im.cuda(non_blocking=True), lb.cuda(non_blocking=True)
 
-            if use_mixup or use_cutmix:
+            if cfg.use_mixup or cfg.use_cutmix:
                 lb = label_encoder(lb)
-            if use_mixup:
+            if cfg.use_mixup:
                 im, lb = mixuper(im, lb)
-            if use_cutmix:
+            if cfg.use_cutmix:
                 im, lb = cutmixer(im, lb)
 
             optim.zero_grad()
-            with amp.autocast(enabled=use_mixed_precision):
+            with amp.autocast(enabled=cfg.use_mixed_precision):
                 logits = model(im)
                 loss = crit(logits, lb) #+ cal_l2_loss(model, weight_decay)
             scaler.scale(loss).backward()
 
             scaler.unscale_(optim)
-            nn.utils.clip_grad_norm_(model.parameters(), grad_clip_norm)
+            nn.utils.clip_grad_norm_(model.parameters(), cfg.grad_clip_norm)
 
             scaler.step(optim)
             scaler.update()
@@ -259,7 +268,7 @@ def main():
                 logger.info(msg)
             scheduler.step()
         torch.cuda.empty_cache()
-        if (e + 1) % n_eval_epoch == 0:
+        if (e + 1) % cfg.n_eval_epoch == 0:
             #  if e > 50: n_eval_epoch = 5
             logger.info('evaluating...')
             acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
@@ -282,15 +291,6 @@ def evaluate(ema, dl_eval):
 
 
 
-def parse_args():
-    parse = argparse.ArgumentParser()
-    parse.add_argument('--local_rank',
-                       dest='local_rank',
-                       type=int,
-                       default=-1,)
-    return parse.parse_args()
-
-
 def init_dist(args):
     torch.cuda.set_device(args.local_rank)
     dist.init_process_group(
@@ -302,8 +302,7 @@ def init_dist(args):
 
 
 if __name__ == '__main__':
-    args = parse_args()
     init_dist(args)
-    setup_logger(model_args['model_type'], './res/')
+    setup_logger(cfg.model_args['model_type'], './res/')
     main()
     dist.barrier()
