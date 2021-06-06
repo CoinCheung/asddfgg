@@ -37,7 +37,7 @@ from cross_entropy import (
 #  from config.pa_resnet50 import *
 #  from config.pa_resnet101 import *
 #  from config.resnet50 import *
-#  from config.resnet50_invol import *
+from config.resnet_d_50 import *
 #  from config.resnet50_blur import *
 #  from config.resnet101 import *
 #  from config.resnet101_blur import *
@@ -57,7 +57,7 @@ from cross_entropy import (
 #  from config.ibn_a_resnet50 import *
 #  from config.ibn_b_resnet50 import *
 #  from config.ibn_a_resnet101 import *
-from config.ibn_b_resnet101 import *
+#  from config.ibn_b_resnet101 import *
 #  from config.ibn_a_resnet101_blur import *
 #  from config.ibn_b_resnet101_blur import *
 #  from config.ibn_b_resnet50_blur_ca import *
@@ -225,9 +225,12 @@ def main():
         for idx, (im, lb) in enumerate(dl_train):
             im, lb= im.cuda(non_blocking=True), lb.cuda(non_blocking=True)
 
-            #  lb = label_encoder(lb)
-            #  im, lb = mixuper(im, lb)
-            #  im, lb = cutmixer(im, lb)
+            if use_mixup or use_cutmix:
+                lb = label_encoder(lb)
+            if use_mixup:
+                im, lb = mixuper(im, lb)
+            if use_cutmix:
+                im, lb = cutmixer(im, lb)
 
             optim.zero_grad()
             with amp.autocast(enabled=use_mixed_precision):

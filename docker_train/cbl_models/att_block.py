@@ -61,6 +61,7 @@ class PS_Axial(nn.Module):
     #      out = self.pool(out)
     #      return out
 
+
 class ConvBlock(nn.Module):
 
     def __init__(self,
@@ -70,7 +71,8 @@ class ConvBlock(nn.Module):
                  stride=1,
                  padding=1,
                  dilation=1,
-                 groups=1):
+                 groups=1,
+                 bias=False):
         super(ConvBlock, self).__init__()
         self.conv = nn.Conv2d(in_chan,
                            out_chan,
@@ -79,10 +81,10 @@ class ConvBlock(nn.Module):
                            padding=padding,
                            dilation=dilation,
                            groups=groups,
-                           bias=bias)
+                           bias=False)
         self.norm = nn.BatchNorm2d(out_chan)
         self.act = nn.ReLU(inplace=True)
-        self.init_weight()
+        nn.init.kaiming_normal_(self.conv.weight)
 
     def forward(self, x):
         x = self.conv(x)
@@ -90,10 +92,10 @@ class ConvBlock(nn.Module):
         x = self.act(x)
         return x
 
-    def init_weight(self):
-        nn.init.kaiming_normal_(self.conv.weight)
-        if not self.conv.bias is None:
-            nn.init.constant_(self.conv.bias, 0)
+    def fuse_conv_bn(self):
+        self.conv = torch.nn.utils.fuse_conv_bn_eval(self.conv, self.norm)
+        self.norm = nn.Identity()
+
 
 
 class SEBlock(nn.Module):
@@ -139,6 +141,63 @@ class CABlock(nn.Module):
         att = x_att_h.view(n, c, 1, w) * x_att_w
         out = x * att
         return out
+
+
+class ASKCFuse(nn.Module):
+
+    def __init__(self, in_chan=64, ratio=16):
+        super(ASKCFuse, self).__init__()
+        mid_chan = in_chan // ratio
+        self.local_att = nn.Sequential(
+            nn.Conv2d(in_chan, mid_chan, 1, 1, 0, bias=True),
+            nn.BatchNorm2d(mid_chan),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(mid_chan, in_chan, 1, 1, 0, bias=True),
+            nn.BatchNorm2d(in_chan),)
+        self.global_att = nn.Sequential(
+            nn.Conv2d(in_chan, mid_chan, 1, 1, 0, bias=True),
+            nn.BatchNorm2d(mid_chan),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(mid_chan, in_chan, 1, 1, 0, bias=True),
+            nn.BatchNorm2d(in_chan),)
+
+    def forward(self, x1, x2):
+        local_att = self.local_att(x1)
+        global_att = torch.mean(x2, dim=(2, 3), keepdims=True)
+        global_att = self.global_att(global_att)
+        att = local_att + global_att
+        att = torch.sigmoid(att)
+        feat_fuse = x1 * att + x2 * (1. - att)
+        return feat_fuse
+
+
+class GEAttentionModule(nn.Module):
+
+    def __init__(self, in_chan, out_chan):
+        super(GEAttentionModule, self).__init__()
+        self.conv = ConvBlock(in_chan, out_chan, 3, 1, 1)
+        self.conv_atten1 = ConvBlock(out_chan, out_chan, 3, 2, 1, groups=out_chan)
+        self.conv_atten2 = ConvBlock(out_chan, out_chan, 3, 2, 1, groups=out_chan)
+        self.conv_atten3 = nn.Sequential(
+                    nn.Conv2d(out_chan, out_chan, 3, 2, 1,
+                        groups=out_chan, bias=False),
+                    nn.BatchNorm2d(out_chan)
+                )
+        self.sigmoid = nn.Sigmoid()
+        nn.init.kaiming_normal_(self.conv_atten3.weight)
+        nn.init.constant_(self.conv_atten3.bias, 0)
+
+    def forward(self, x):
+        feat = self.conv(x)
+        size = feat.size()[2:]
+        atten = self.conv_atten1(feat)
+        atten = self.conv_atten2(atten)
+        atten = self.conv_atten3(atten)
+        atten = F.interpolate(atten, size, mode='bilinear', align_corners=False)
+        atten = self.sigmoid(atten)
+        out = torch.mul(feat, atten)
+        return out
+
 
 
 if __name__ == "__main__":

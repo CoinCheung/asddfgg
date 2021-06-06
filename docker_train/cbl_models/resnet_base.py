@@ -10,6 +10,7 @@ from torch.nn import Conv2d
 from .conv_ops import build_conv
 from .ibn import IBN
 from .blurpool import BlurPool
+from .att_block import ASKCFuse, CABlock, SEBlock, ConvBlock, GEAttentionModule
 
 from pytorch_loss import FReLU
 
@@ -30,113 +31,6 @@ def build_act(act_type, chan):
         act = FReLU(chan)
     return act
 
-
-class ConvBlock(nn.Module):
-
-    def __init__(self,
-                 in_chan,
-                 out_chan,
-                 ks=3,
-                 stride=1,
-                 padding=1,
-                 dilation=1,
-                 groups=1,
-                 bias=False):
-        super(ConvBlock, self).__init__()
-        self.conv = Conv2d(in_chan,
-                           out_chan,
-                           kernel_size=ks,
-                           stride=stride,
-                           padding=padding,
-                           dilation=dilation,
-                           groups=groups,
-                           bias=False)
-        self.norm = nn.BatchNorm2d(out_chan)
-        self.act = nn.ReLU(inplace=True)
-        nn.init.kaiming_normal_(self.conv.weight)
-
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.norm(x)
-        x = self.act(x)
-        return x
-
-    def fuse_conv_bn(self):
-        self.conv = torch.nn.utils.fuse_conv_bn_eval(self.conv, self.norm)
-        self.norm = nn.Identity()
-
-
-class SEBlock(nn.Module):
-
-    def __init__(self, in_chan, ratio, min_chan=8, conv_type='nn'):
-        super(SEBlock, self).__init__()
-        mid_chan = in_chan // 8
-        if mid_chan < min_chan: mid_chan = min_chan
-        #  self.conv1 = nn.Conv2d(in_chan, mid_chan, 1, 1, 0, bias=True)
-        #  self.conv2 = nn.Conv2d(mid_chan, in_chan, 1, 1, 0, bias=True)
-        self.conv1 = build_conv(conv_type, in_chan, mid_chan, 1, 1, 0, bias=True)
-        self.conv2 = build_conv(conv_type, mid_chan, in_chan, 1, 1, 0, bias=True)
-
-    def forward(self, x):
-        att = torch.mean(x, dim=(2, 3), keepdims=True)
-        att = self.conv1(att)
-        att = F.relu(att, inplace=True)
-        att = self.conv2(att)
-        att = torch.sigmoid(att)
-        out = x * att
-        return out
-
-
-class CABlock(nn.Module):
-
-    def __init__(self, in_chan, out_chan, ratio=32):
-        super(CABlock, self).__init__()
-        mid_chan = max(8, in_chan // ratio)
-        self.conv_cat = ConvBlock(in_chan, mid_chan, 1, 1, 0)
-        self.conv_h = nn.Conv2d(mid_chan, out_chan, 1, 1, 0, bias=True)
-        self.conv_w = nn.Conv2d(mid_chan, out_chan, 1, 1, 0, bias=True)
-
-    def forward(self, x):
-        n, c, h, w = x.size()
-        x_h = torch.mean(x, dim=(2,)).view(n, c, w, 1)
-        x_w = torch.mean(x, dim=(3,)).view(n, c, h, 1)
-        x_att = torch.cat([x_h, x_w], dim=2)
-        x_att = self.conv_cat(x_att)
-
-        x_att_h, x_att_w = x_att.split([h, w], dim=2)
-        x_att_h = self.conv_h(x_att_h).sigmoid()
-        x_att_w = self.conv_w(x_att_w).sigmoid()
-        att = x_att_h.view(n, c, 1, w) * x_att_w
-        out = x * att
-        return out
-
-
-class ASKCFuse(nn.Module):
-
-    def __init__(self, in_chan=64, ratio=16):
-        super(ASKCFuse, self).__init__()
-        mid_chan = in_chan // ratio
-        self.local_att = nn.Sequential(
-            nn.Conv2d(in_chan, mid_chan, 1, 1, 0, bias=True),
-            nn.BatchNorm2d(mid_chan),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_chan, in_chan, 1, 1, 0, bias=True),
-            nn.BatchNorm2d(in_chan),)
-        self.global_att = nn.Sequential(
-            nn.Conv2d(in_chan, mid_chan, 1, 1, 0, bias=True),
-            nn.BatchNorm2d(mid_chan),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_chan, in_chan, 1, 1, 0, bias=True),
-            nn.BatchNorm2d(in_chan),)
-
-    def forward(self, x1, x2):
-        local_att = self.local_att(x1)
-        global_att = torch.mean(x2, dim=(2, 3), keepdims=True)
-        global_att = self.global_att(global_att)
-        att = local_att + global_att
-        att = torch.sigmoid(att)
-        feat_fuse = x1 * att + x2 * (1. - att)
-        return feat_fuse
 
 
 class Bottleneck(nn.Module):
@@ -182,7 +76,6 @@ class Bottleneck(nn.Module):
         else:
             self.blur_pool = nn.Identity()
 
-        #  mid_ks = 7 if mid_type.startswith('invol_v') else 3
         self.conv2 = build_conv(mid_type, mid_chan,
                             mid_chan,
                             kernel_size=3,
@@ -308,7 +201,7 @@ class ResNetBackbone(nn.Module):
 
     def __init__(self, in_chan=3, n_layers=50, stride=32, use_se=False,
             use_ca=False, use_askc=False, conv_type='nn', mid_type='nn', act_type='relu',
-            ibn='none', stem_type='naive', use_blur_pool=False, out1024=False):
+            ibn='none', stem_type='naive', use_ge_att=False, use_blur_pool=False, out1024=False):
         super(ResNetBackbone, self).__init__()
         self.mid_type = mid_type
         self.ibn = ibn
@@ -316,7 +209,9 @@ class ResNetBackbone(nn.Module):
 
         assert stride in (8, 16, 32)
         dils = [1, 1] if stride == 32 else [el*(16//stride) for el in (1, 2)]
-        strds = [2 if el == 1 else 1 for el in dils]
+        strds = [1, 2] + [2 if el == 1 else 1 for el in dils]
+        if stem_type == 'res_d': strds[0] = 2
+
         if n_layers == 38:
             layers = [2, 3, 5, 2]
         elif n_layers == 50:
@@ -338,22 +233,29 @@ class ResNetBackbone(nn.Module):
 
         last_out_chan = 1024 if out1024 else 2048
 
-        self.layer1 = create_stage(64, 256, layers[0], stride=1, dilation=1,
+        interv_block = GEAttentionModule if use_ge_att else nn.Identity
+
+
+        self.layer1 = create_stage(64, 256, layers[0], stride=strds[0], dilation=1,
                     use_ca=use_ca, use_se=use_se, use_askc=use_askc, conv_type=conv_type,
                     mid_type=mid_type, act_type=act_type, ibn=ibns[0],
                     use_blur_pool=use_blur_pool)
-        self.layer2 = create_stage(256, 512, layers[1], stride=2, dilation=1,
+        self.ge_att1 = interv_block(256, 256)
+        self.layer2 = create_stage(256, 512, layers[1], stride=strds[1], dilation=1,
                     use_ca=use_ca, use_se=use_se, use_askc=use_askc, conv_type=conv_type,
                     mid_type=mid_type, act_type=act_type, ibn=ibns[1],
                     use_blur_pool=use_blur_pool)
-        self.layer3 = create_stage(512, 1024, layers[2], stride=strds[0],
+        self.ge_att2 = interv_block(512, 512)
+        self.layer3 = create_stage(512, 1024, layers[2], stride=strds[2],
                     dilation=dils[0], use_ca=use_ca, use_se=use_se, use_askc=use_askc,
                     mid_type=mid_type, conv_type=conv_type, act_type=act_type, ibn=ibns[2],
                     use_blur_pool=use_blur_pool)
-        self.layer4 = create_stage(1024, last_out_chan, layers[3], stride=strds[1],
+        self.ge_att3 = interv_block(1024, 1024)
+        self.layer4 = create_stage(1024, last_out_chan, layers[3], stride=strds[3],
                     dilation=dils[1], use_ca=use_ca, use_se=use_se, use_askc=use_askc,
                     mid_type=mid_type, conv_type=conv_type, act_type=act_type, ibn=ibns[3],
                     use_blur_pool=use_blur_pool)
+        self.ge_att4 = interv_block(last_out_chan, last_out_chan)
 
         self.out_chans = [256, 512, 1024, last_out_chan]
         #  init_weight(self)
@@ -367,21 +269,21 @@ class ResNetBackbone(nn.Module):
             conv_type0 = conv_type
             if conv_type == 'dy': conv_type0 = 'nn'
             self.conv1 = build_conv(conv_type0, in_chan, 64, kernel_size=7, stride=2, padding=3, bias=False)
+
+            if not use_blur_pool:
+                self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1,
+                        dilation=1, ceil_mode=False)
+            else:
+                self.maxpool = nn.Sequential(
+                        nn.MaxPool2d(kernel_size=2, stride=1),
+                        BlurPool(64, stride=2))
+
         elif stem_type == 'res_d':
-            if self.mid_type == 'nn':
-                midconv = ConvBlock(32, 32, 3, 1, 1)
-            elif self.mid_type.startswith('invol_v'):
-                midconv = nn.Sequential(
-                        build_conv(mid_type, 32, 32, 3, 1, 1, bias=False),
-                        nn.BatchNorm2d(32), build_act(act_type, chan=32))
-            self.blur_pool, first_stride = nn.Identity(), 2
-            if use_blur_pool:
-                self.blur_pool = BlurPool(in_chan, stride=2)
-                first_stride = 1
             self.conv1 = nn.Sequential(
-                ConvBlock(in_chan, 32, 3, first_stride, 1),
-                midconv,
+                ConvBlock(in_chan, 32, 3, 2, 1),
+                ConvBlock(32, 32, 3, 1, 1),
                 nn.Conv2d(32, 64, 3, 1, 1, bias=False))
+            self.maxpool = nn.Identity()
 
         if self.ibn == 'b':
             self.bn1 = nn.InstanceNorm2d(64, affine=True)
@@ -390,14 +292,6 @@ class ResNetBackbone(nn.Module):
         #  relu = nn.ReLU(inplace=True)
         self.relu = build_act(act_type, chan=64)
         #  relu = FReLU(64)
-
-        if not use_blur_pool:
-            self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1,
-                    dilation=1, ceil_mode=False)
-        else:
-            self.maxpool = nn.Sequential(
-                    nn.MaxPool2d(kernel_size=2, stride=1),
-                    BlurPool(64, stride=2))
 
 
     def forward(self, x):
