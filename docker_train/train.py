@@ -16,7 +16,8 @@ import torch.distributed as dist
 import torch.cuda.amp as amp
 
 from cbl_models import build_model
-from imagenet.imagenet_cv2 import ImageNet
+from data import get_dataset
+#  from data.imagenet_cv2 import ImageNet
 #  from imagenet.imagenet import ImageNet
 from eval import eval_model
 from meters import TimeMeter, AvgMeter
@@ -153,7 +154,8 @@ def main():
     global n_eval_epoch
 
     ## dataloader
-    dataset_train = ImageNet(datapth, mode='train', cropsize=cropsize)
+    dataset_train = get_dataset(dataset_args, mode='train')
+    #  dataset_train = dataset(datapth, mode='train', cropsize=cropsize)
     sampler_train = torch.utils.data.distributed.DistributedSampler(
         dataset_train, shuffle=True)
     batch_sampler_train = torch.utils.data.sampler.BatchSampler(
@@ -166,7 +168,8 @@ def main():
         num_workers=num_workers, pin_memory=True,
         worker_init_fn=worker_init_fn
     )
-    dataset_eval = ImageNet(datapth, mode='val', cropsize=cropsize)
+    dataset_eval = get_dataset(dataset_args, mode='val')
+    #  dataset_eval = ImageNet(datapth, mode='val', cropsize=cropsize)
     sampler_val = torch.utils.data.distributed.DistributedSampler(
         dataset_eval, shuffle=False)
     batch_sampler_val = torch.utils.data.sampler.BatchSampler(

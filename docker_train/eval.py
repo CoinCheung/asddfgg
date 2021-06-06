@@ -6,7 +6,7 @@ from cbl_models import build_model
 import torch
 import torch.distributed as dist
 from torch.utils.data import Dataset, DataLoader
-from imagenet.imagenet_cv2 import ImageNet
+from data.imagenet_cv2 import ImageNet
 
 #  from config.effnetb0 import *
 #  from config.effnetb2 import *

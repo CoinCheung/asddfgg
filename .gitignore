@@ -104,11 +104,11 @@ venv.bak/
 
 
 ## Coin: 
-data
-data/
 res/
 output
 screenlog*
 cifar/dataset/
 cifar/res/
+docker_train/datasets/
+docker_train/res/
 
