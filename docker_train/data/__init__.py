@@ -1,6 +1,7 @@
 
 from copy import deepcopy
 from .imagenet_cv2 import ImageNet
+from .seti import SETI
 
 
 

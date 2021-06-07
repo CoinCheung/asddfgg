@@ -2,6 +2,8 @@
 # -*- encoding: utf-8 -*-
 
 
+import logging
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -325,7 +327,7 @@ class ResNet(nn.Module):
     def __init__(self, n_classes=1000, in_chan=3, n_layers=50, stride=32,
             use_se=False, use_ca=False, use_askc=False, conv_type='nn',
             mid_type='nn', act_type='relu', ibn='none', stem_type='naive',
-            use_blur_pool=False, out1024=False):
+            use_blur_pool=False, out1024=False, pretrain=None):
         super(ResNet, self).__init__()
         self.conv_type = conv_type
         self.backbone = ResNetBackbone(in_chan=in_chan, n_layers=n_layers,
@@ -334,6 +336,7 @@ class ResNet(nn.Module):
                 ibn=ibn, stem_type=stem_type, use_blur_pool=use_blur_pool,
                 out1024=out1024)
         self.classifier = nn.Linear(self.backbone.out_chans[-1], n_classes, bias=True)
+        self.load_pretrain(pretrain)
 
     def forward(self, x):
         feat = self.backbone(x)[-1]
@@ -347,9 +350,30 @@ class ResNet(nn.Module):
             classifier=self.classifier.state_dict())
         return state
 
-    def load_states(self, state):
+    def load_states(self, state, strict=True):
         self.backbone.load_state_dict(state['backbone'])
         self.classifier.load_state_dict(state['classifier'])
+
+    def load_module_pretrain(self, module, state, prefix=''):
+        logger = logging.getLogger()
+        for k, v in module.state_dict().items():
+            if not k in state:
+                msg = f'skip {prefix}.{k} which is not in ckpt'
+                logger.info(msg)
+            elif not state[k].size() == v.size():
+                s_size, v_size = state[k].size(), v.size()
+                msg = f'skip {prefix}.{k} with size {v_size}, the ckpt size is {s_size}'
+                logger.info(msg)
+            else:
+                v.copy_(state[k])
+
+    def load_pretrain(self, pth):
+        logger = logging.getLogger()
+        logger.info(f'load pretrain from path: {pth}')
+        state = torch.load(pth, map_location='cpu')
+        self.load_module_pretrain(self.backbone, state['backbone'], 'backbone')
+        self.load_module_pretrain(self.classifier, state['classifier'], 'classifier')
+
 
     def fuse_conv_bn(self):
         for mod in self.modules():

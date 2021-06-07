@@ -19,5 +19,10 @@ def setup_logger(model_type, logpth):
     logfile = osp.join(logpth, logfile)
     FORMAT = '%(levelname)s %(filename)s(%(lineno)d): %(message)s'
     log_level = logging.INFO
-    logging.basicConfig(level=log_level, format=FORMAT, filename=logfile)
+    try:
+        logging.basicConfig(level=log_level, format=FORMAT,
+                filename=logfile, force=True)
+    except Exception:
+        logging.basicConfig(level=log_level, format=FORMAT,
+                filename=logfile)
     logging.root.addHandler(logging.StreamHandler())

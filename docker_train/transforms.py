@@ -228,7 +228,29 @@ class RandomHorizontalFlip(object):
 
     def __call__(self, img):
         if random.random() > self.p: return img
-        return img[:, ::-1, :]
+        dim = len(img.shape)
+        if dim == 3:
+            return img[:, ::-1, :]
+        elif dim == 2:
+            return img[:, ::-1]
+        else:
+            raise NotImplementedError
+
+
+class RandomVerticalFlip(object):
+
+    def __init__(self, p=0.5):
+        self.p = p
+
+    def __call__(self, img):
+        if random.random() > self.p: return img
+        dim = len(img.shape)
+        if dim == 3:
+            return img[::-1, :, :]
+        elif dim == 2:
+            return img[::-1, :]
+        else:
+            raise NotImplementedError
 
 
 class PCANoise(object):
@@ -330,6 +352,15 @@ class ColorJitter(object):
         transform = self.get_params(self.brightness, self.contrast,
                                     self.saturation)
         return transform(img)
+
+
+class Identity(object):
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __call__(self, img):
+        return img
 
 
 class Compose(object):

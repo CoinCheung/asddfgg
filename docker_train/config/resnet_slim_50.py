@@ -1,7 +1,7 @@
 
 
 n_gpus = 8
-batchsize = 256
+batchsize = 128
 n_epoches = 200
 n_eval_epoch = 1
 opt_type = 'SGD'

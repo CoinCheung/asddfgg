@@ -148,7 +148,10 @@ def set_optimizer(model, opt_type, opt_args, schdlr_type, schdlr_args):
         {'params': wd_params},
         {'params': non_wd_params, 'weight_decay': 0},
     ]
-    opt_dict = {'SGD': torch.optim.SGD, 'RMSpropTF': RMSpropTF}
+    opt_dict = {'SGD': torch.optim.SGD,
+            'RMSpropTF': RMSpropTF,
+            'AdamW': torch.optim.AdamW,
+            }
     schdlr_dict = {'ExpLr': WarmupExpLrScheduler,
                 'StepLr': WarmupStepLrScheduler,
                 'CosineLr': WarmupCosineLrScheduler,
@@ -197,8 +200,8 @@ def main():
 
     ## sync bn
     if cfg.use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    #  crit = nn.CrossEntropyLoss()
-    crit = LabelSmoothSoftmaxCEV3(cfg.lb_smooth)
+    crit = nn.CrossEntropyLoss()
+    #  crit = LabelSmoothSoftmaxCEV3(cfg.lb_smooth)
     #  crit = SoftmaxCrossEntropyV1()
 
     ## optimizer
@@ -231,6 +234,7 @@ def main():
 
     ## train loop
     for e in range(cfg.n_epoches):
+        logger.info(f'train epoch {e}')
         sampler_train.set_epoch(e)
         np.random.seed(init_seed + e)
         model.train()
@@ -259,7 +263,7 @@ def main():
             ema.update_params()
             time_meter.update()
             loss_meter.update(loss.item())
-            if (idx + 1) % 200 == 0:
+            if (idx + 1) % cfg.print_freq == 0:
                 t_intv, eta = time_meter.get()
                 lr_log = scheduler.get_lr()
                 lr_log = sum(lr_log) / len(lr_log)
@@ -270,9 +274,8 @@ def main():
         torch.cuda.empty_cache()
         if (e + 1) % cfg.n_eval_epoch == 0:
             #  if e > 50: n_eval_epoch = 5
-            logger.info('evaluating...')
             acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
-            msg = 'epoch: {}, naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
+            msg = 'evaluate epoch {}: naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
             logger.info(msg)
     if dist.is_initialized() and dist.get_rank() == 0:
         #  torch.save(model.module.state_dict(), './res/model_final_naive.pth')
