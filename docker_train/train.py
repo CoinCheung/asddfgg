@@ -165,6 +165,7 @@ def set_optimizer(model, opt_type, opt_args, schdlr_type, schdlr_args):
 
 
 def main():
+    num_classes = cfg.model_args['n_classes']
 
     ## dataloader
     dataset_train = get_dataset(cfg.dataset_args, mode='train')
@@ -200,9 +201,12 @@ def main():
 
     ## sync bn
     if cfg.use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-    crit = nn.CrossEntropyLoss()
-    #  crit = LabelSmoothSoftmaxCEV3(cfg.lb_smooth)
-    #  crit = SoftmaxCrossEntropyV1()
+    if cfg.model_args['n_classes'] == 1:
+        crit = nn.BCEWithLogitsLoss()
+    else:
+        crit = nn.CrossEntropyLoss()
+        #  crit = LabelSmoothSoftmaxCEV3(cfg.lb_smooth)
+        #  crit = SoftmaxCrossEntropyV1()
 
     ## optimizer
     optim, scheduler = set_optimizer(model,
@@ -227,7 +231,7 @@ def main():
     logger = logging.getLogger()
 
     # for mixup
-    label_encoder = OnehotEncoder(n_classes=cfg.model_args['n_classes'],
+    label_encoder = OnehotEncoder(n_classes=num_classes,
             lb_smooth=cfg.lb_smooth)
     mixuper = MixUper(cfg.mixup_alpha)
     cutmixer = CutMixer(cfg.cutmix_beta)
@@ -241,7 +245,7 @@ def main():
         for idx, (im, lb) in enumerate(dl_train):
             im, lb= im.cuda(non_blocking=True), lb.cuda(non_blocking=True)
 
-            if cfg.use_mixup or cfg.use_cutmix:
+            if num_classes > 1 and (cfg.use_mixup or cfg.use_cutmix):
                 lb = label_encoder(lb)
             if cfg.use_mixup:
                 im, lb = mixuper(im, lb)
@@ -275,7 +279,7 @@ def main():
         if (e + 1) % cfg.n_eval_epoch == 0:
             #  if e > 50: n_eval_epoch = 5
             acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
-            msg = 'evaluate epoch {}: naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
+            msg = 'epoch {} eval result: naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
             logger.info(msg)
     if dist.is_initialized() and dist.get_rank() == 0:
         #  torch.save(model.module.state_dict(), './res/model_final_naive.pth')

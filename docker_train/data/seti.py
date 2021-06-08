@@ -65,7 +65,8 @@ class SETI(Dataset):
         else:
             im = self.trans_val(image=im)
         im = im['image']
-        return im, label
+        label = torch.tensor([label]).float()
+        return im, label, impth
 
     def __len__(self):
         return len(self.samples)

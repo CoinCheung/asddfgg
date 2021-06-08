@@ -2,6 +2,7 @@
 import time
 import datetime
 
+
 class TimeMeter(object):
 
     def __init__(self, max_iter):

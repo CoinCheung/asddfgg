@@ -3,10 +3,12 @@ import argparse
 import numpy as np
 
 from cbl_models import build_model
+from config import set_cfg_from_file
+from data import get_dataset
+
 import torch
 import torch.distributed as dist
 from torch.utils.data import Dataset, DataLoader
-from data.imagenet_cv2 import ImageNet
 
 #  from config.effnetb0 import *
 #  from config.effnetb2 import *
@@ -16,12 +18,27 @@ from data.imagenet_cv2 import ImageNet
 #  from config.frelu_resnet101 import *
 #  from config.ibn_a_resnet50 import *
 #  from config.ibn_b_resnet101_blur import *
-from config.repvgg_a1 import *
+#  from config.repvgg_a1 import *
 #  from config.repvgg_a2 import *
 
 
-#  ckpt_path = './res/model_final_naive.pth'
-ckpt_path = '/root/model_final_naive_repvgg_a1.pth'
+ckpt_path = './res/model_final_naive.pth'
+
+
+def parse_args():
+    parse = argparse.ArgumentParser()
+    parse.add_argument('--local_rank',
+                       dest='local_rank',
+                       type=int,
+                       default=-1,)
+    parse.add_argument('--config', dest='config', type=str, default='resnet50.py',)
+    return parse.parse_args()
+
+
+args = parse_args()
+cfg = set_cfg_from_file(args.config)
+
+
 
 def evaluate(model, dl_eval):
     acc_1, acc_5 = eval_model(model, dl_eval)
@@ -36,32 +53,44 @@ def eval_model(model, dl_eval):
     for idx, (im, lb) in enumerate(dl_eval):
         im = im.cuda()
         lb = lb.cuda()
+        #  lb = torch.zeros_like(lb)
         logits = model(im)
-        scores = torch.softmax(logits, dim=1)
+        if logits.size(1) == 1:
+            scores = logits.sigmoid() # score: (bs, 1), lb: (bs, 1)
+        else:
+            scores = torch.softmax(logits, dim=1)
 
         all_scores.append(scores)
         all_gts.append(lb)
     all_scores = torch.cat(all_scores, dim=0)
     all_gts = torch.cat(all_gts, dim=0)
-    all_preds = torch.argsort(-all_scores, dim=1)
-    match = (all_preds == all_gts.unsqueeze(1)).float()
-    n_correct_1 = match[:, :1].sum()
-    n_correct_5 = match[:, :5].sum()
-    n_samples = torch.tensor(match.size(0)).cuda()
-    if dist.is_initialized():
-        dist.all_reduce(n_correct_1, dist.ReduceOp.SUM)
-        dist.all_reduce(n_correct_5, dist.ReduceOp.SUM)
-        dist.all_reduce(n_samples, dist.ReduceOp.SUM)
-    acc1 = (n_correct_1 / n_samples).item()
-    acc5 = (n_correct_5 / n_samples).item()
+    if all_scores.size(1) == 1:
+        all_preds = all_scores.round().long()
+        n_correct = (all_gts == all_preds).sum()
+        n_samples = torch.tensor(all_gts.size(0)).cuda()
+        if dist.is_initialized():
+            dist.all_reduce(n_correct, dist.ReduceOp.SUM)
+            dist.all_reduce(n_samples, dist.ReduceOp.SUM)
+        acc1 = n_correct / n_samples
+        acc5 = acc1
+    else:
+        all_preds = torch.argsort(-all_scores, dim=1)
+        match = (all_preds == all_gts.unsqueeze(1)).float()
+        n_correct_1 = match[:, :1].sum()
+        n_correct_5 = match[:, :5].sum()
+        n_samples = torch.tensor(match.size(0)).cuda()
+        if dist.is_initialized():
+            dist.all_reduce(n_correct_1, dist.ReduceOp.SUM)
+            dist.all_reduce(n_correct_5, dist.ReduceOp.SUM)
+            dist.all_reduce(n_samples, dist.ReduceOp.SUM)
+        acc1 = (n_correct_1 / n_samples).item()
+        acc5 = (n_correct_5 / n_samples).item()
     torch.cuda.empty_cache()
     return acc1, acc5
 
 
 def main():
-    #  model = ResNet50()
-    #  model = EfficientNet(model_type, n_classes)
-    model = build_model(model_args)
+    model = build_model(cfg.model_args)
     sd = torch.load(ckpt_path, map_location='cpu')
     #  new_sd = {}
     #  for k, v in sd.items():
@@ -80,13 +109,12 @@ def main():
     #  if dist.get_rank() == 0:
     #      print(model)
 
-    batchsize = 256
-    ds = ImageNet(datapth, mode='val', cropsize=cropsize)
+    ds = get_dataset(cfg.dataset_args, mode='val')
     if dist.is_initialized():
         sampler_val = torch.utils.data.distributed.DistributedSampler(
             ds, shuffle=False)
         batch_sampler_val = torch.utils.data.sampler.BatchSampler(
-            sampler_val, batchsize, drop_last=False
+            sampler_val, cfg.batchsize, drop_last=False
         )
         dl = DataLoader(
             ds, batch_sampler=batch_sampler_val,
@@ -104,15 +132,6 @@ def main():
         print('acc1: {}, acc5: {}'.format(acc1, acc5))
 
 
-def parse_args():
-    parse = argparse.ArgumentParser()
-    parse.add_argument('--local_rank',
-                       dest='local_rank',
-                       type=int,
-                       default=-1,)
-    return parse.parse_args()
-
-
 def init_dist(args):
     torch.cuda.set_device(args.local_rank)
     dist.init_process_group(
@@ -123,6 +142,5 @@ def init_dist(args):
     )
 
 if __name__ == "__main__":
-    args = parse_args()
     init_dist(args)
     main()

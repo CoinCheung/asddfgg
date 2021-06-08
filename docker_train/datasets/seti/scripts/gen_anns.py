@@ -43,19 +43,19 @@ test_lines = [
         for el in test_md5s
         ]
 
-#  with open(osp.join(save_root, 'train_all.txt'), 'w') as fw:
-#      fw.write('\n'.join(train_lines + test_lines))
-#  with open(osp.join(save_root, 'train_split.txt'), 'w') as fw:
-#      fw.write('\n'.join(train_lines))
-#  with open(osp.join(save_root, 'val_split.txt'), 'w') as fw:
-#      fw.write('\n'.join(test_lines))
+with open(osp.join(save_root, 'train_all.txt'), 'w') as fw:
+    fw.write('\n'.join(train_lines + test_lines))
+with open(osp.join(save_root, 'train_split.txt'), 'w') as fw:
+    fw.write('\n'.join(train_lines))
+with open(osp.join(save_root, 'val_split.txt'), 'w') as fw:
+    fw.write('\n'.join(test_lines))
 
 
-test_root = './test/'
-test_paths = []
-for root, folders, files in os.walk(test_root):
-    for fl in files:
-        fpth = osp.join(root, fl)
-        test_paths.append(fpth)
-with open(osp.join(save_root, 'test.txt'), 'w') as fw:
-    fw.write('\n'.join(test_paths))
+#  test_root = './test/'
+#  test_paths = []
+#  for root, folders, files in os.walk(test_root):
+#      for fl in files:
+#          fpth = osp.join(root, fl)
+#          test_paths.append(fpth)
+#  with open(osp.join(save_root, 'test.txt'), 'w') as fw:
+#      fw.write('\n'.join(test_paths))

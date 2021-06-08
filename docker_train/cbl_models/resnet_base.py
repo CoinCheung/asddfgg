@@ -311,6 +311,7 @@ class ResNetBackbone(nn.Module):
     def register_freeze_layers(self):
         self.layers = [self.conv1, self.bn1, self.layer1]
 
+    @torch.no_grad()
     def load_ckpt(self, path):
         state = torch.load(path, map_location='cpu')
         self.load_state_dict(state, strict=True)
@@ -350,10 +351,12 @@ class ResNet(nn.Module):
             classifier=self.classifier.state_dict())
         return state
 
+    @torch.no_grad()
     def load_states(self, state, strict=True):
         self.backbone.load_state_dict(state['backbone'])
         self.classifier.load_state_dict(state['classifier'])
 
+    @torch.no_grad()
     def load_module_pretrain(self, module, state, prefix=''):
         logger = logging.getLogger()
         for k, v in module.state_dict().items():
@@ -367,7 +370,9 @@ class ResNet(nn.Module):
             else:
                 v.copy_(state[k])
 
+    @torch.no_grad()
     def load_pretrain(self, pth):
+        if pth is None: return
         logger = logging.getLogger()
         logger.info(f'load pretrain from path: {pth}')
         state = torch.load(pth, map_location='cpu')

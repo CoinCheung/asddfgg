@@ -29,7 +29,6 @@ ckpt_paths = [
         './res/model_final_ema.pth',
         ]
 batchsize = 32
-n_models = len(ckpt_paths)
 
 
 
@@ -57,6 +56,8 @@ def define_models():
     for cfg_file, ckpt_pth in zip(cfg_files, ckpt_paths):
         cfg = set_cfg_from_file(cfg_file)
         model = build_model(cfg.model_args)
+        state = torch.load(ckpt_pth, map_location='cpu')
+        model.load_states(state)
         model.cuda().eval()
         models.append(model)
         cfgs.append(cfg)
@@ -109,11 +110,15 @@ def run_submit():
         imgs = imgs.cuda()
         bs = imgs.size(0)
         scores = torch.zeros(bs).cuda()
+        n_adds = 0
         for model in models:
-            #  out = model(imgs).softmax(dim=1)[:, 1]
-            #  print(out.size())
-            scores += model(imgs).softmax(dim=1)[:, 1]
-        scores /= n_models
+            logits = model(imgs)
+            if logits.size(1) == 1:
+                scores += logits.sigmoid().squeeze()
+            else:
+                scores += logits.softmax(dim=1)[:, 1]
+            n_adds += 1
+        scores /= n_adds
         scores = scores.tolist()
         for fid, score in zip(fids, scores):
             lines.append(f'{fid},{score}')

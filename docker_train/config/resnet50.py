@@ -13,15 +13,18 @@ schdlr_args = dict(
         warmup_iter=5, warmup='linear', warmup_ratio=0.05)
 model_args = dict(model_type='ResNet', n_layers=50, n_classes=1000, use_blur_pool=False)
 grad_clip_norm = 10
-datapth = './imagenet/'
-cropsize = 224
+dataset_args = dict(
+        ds_type='ImageNet', root='./datasets/imagenet/',
+        cropsize=224,
+        )
+print_freq = 200
 num_workers = 4
 ema_alpha = 0.9999
 use_mixed_precision = True
 use_sync_bn = False
-use_mixup = True
+use_mixup = False
 mixup_alpha = 0.4
-ues_cutmix = True
+use_cutmix = False
 cutmix_beta = 1.
 lb_smooth = 0.1
 
