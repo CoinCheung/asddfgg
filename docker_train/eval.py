@@ -1,6 +1,7 @@
 import os.path as osp
 import argparse
 import numpy as np
+from sklearn.metrics import roc_auc_score
 
 from cbl_models import build_model
 from config import set_cfg_from_file
@@ -9,6 +10,7 @@ from data import get_dataset
 import torch
 import torch.distributed as dist
 from torch.utils.data import Dataset, DataLoader
+
 
 #  from config.effnetb0 import *
 #  from config.effnetb2 import *
@@ -64,6 +66,7 @@ def eval_model(model, dl_eval):
         all_gts.append(lb)
     all_scores = torch.cat(all_scores, dim=0)
     all_gts = torch.cat(all_gts, dim=0)
+
     if all_scores.size(1) == 1:
         all_preds = all_scores.round().long()
         n_correct = (all_gts == all_preds).sum()
@@ -87,6 +90,15 @@ def eval_model(model, dl_eval):
         acc5 = (n_correct_5 / n_samples).item()
     torch.cuda.empty_cache()
     return acc1, acc5
+
+
+@torch.no_grad()
+def compute_acc():
+
+
+@torch.no_grad()
+def compute_roc_auc_score():
+    pass
 
 
 def main():

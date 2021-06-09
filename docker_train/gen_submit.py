@@ -125,10 +125,22 @@ def run_submit():
 
     with open(f'./res/submit_worker_{local_rank}.csv', 'w') as fw:
         fw.write('\n'.join(lines))
-    torch.cuda.synchronize()
+
+    with open(f'./res/worker_{local_rank}_done', 'w') as fw:
+        fw.write('')
+
 
     if local_rank == 0:
-        lines = ['id,target',]
+        ## synchronize
+        while True:
+            n_done = 0
+            for rk in range(torch.cuda.device_count()):
+                if osp.exists(f'./res/worker_{rk}_done'):
+                    n_done += 1
+            if n_done == torch.cuda.device_count(): break
+
+        ## merge results
+        lines = []
         for rk in range(torch.cuda.device_count()):
             with open(f'./res/submit_worker_{rk}.csv', 'r') as fr:
                 lines += fr.read().splitlines()
@@ -136,7 +148,7 @@ def run_submit():
         for line in lines:
             fid, score = line.split(',')
             res_dict[fid] = score
-        lines = [f'{k},{v}' for k,v in res_dict.items()]
+        lines = ['id,target',] + [f'{k},{v}' for k,v in res_dict.items()]
         with open(f'./res/submit.csv', 'w') as fw:
             fw.write('\n'.join(lines))
 

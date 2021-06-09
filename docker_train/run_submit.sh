@@ -7,4 +7,10 @@ NGPUS=8
 PORT=42345
 
 
+for f in `ls res | grep done`;
+do
+    rm res/$f
+done
 python -m torch.distributed.launch --nproc_per_node=$NGPUS --master_port=$PORT ./gen_submit.py
+
+
