@@ -28,8 +28,11 @@ from lr_scheduler import (
         WarmupExpLrScheduler, WarmupStepLrScheduler, WarmupCosineLrScheduler)
 from cross_entropy import (
         SoftmaxCrossEntropyV2,
-        SoftmaxCrossEntropyV1
+        SoftmaxCrossEntropyV1,
+        SoftDiceFocalLoss,
     )
+
+from pytorch_loss import FocalLossV3, SoftDiceLossV3
 
 
 #  from config.spinenet49 import *
@@ -109,11 +112,12 @@ args = parse_args()
 cfg = set_cfg_from_file(args.config)
 
 init_seed = 123
-random.seed(init_seed)
-np.random.seed(init_seed)
-torch.manual_seed(init_seed)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = True
+#  random.seed(init_seed)
+#  np.random.seed(init_seed)
+#  torch.manual_seed(init_seed)
+#  torch.backends.cudnn.deterministic = True
+#  torch.backends.cudnn.benchmark = True
+
 #  torch.multiprocessing.set_sharing_strategy('file_system') # this would make it stuck when program is done
 
 
@@ -198,11 +202,14 @@ def main():
     ## model
     model = build_model(cfg.model_args)
     model.cuda()
+    if dist.get_rank() == 0: print(model)
 
     ## sync bn
     if cfg.use_sync_bn: model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
     if cfg.model_args['n_classes'] == 1:
         crit = nn.BCEWithLogitsLoss()
+        #  crit = FocalLossV3()
+        #  crit = SoftDiceLossV3()
     else:
         crit = nn.CrossEntropyLoss()
         #  crit = LabelSmoothSoftmaxCEV3(cfg.lb_smooth)
@@ -238,7 +245,7 @@ def main():
 
     ## train loop
     for e in range(cfg.n_epoches):
-        logger.info(f'train epoch {e}')
+        logger.info(f'train epoch {e + 1}')
         sampler_train.set_epoch(e)
         np.random.seed(init_seed + e)
         model.train()
@@ -248,6 +255,7 @@ def main():
             if num_classes > 1 and (cfg.use_mixup or cfg.use_cutmix):
                 lb = label_encoder(lb)
             if cfg.use_mixup:
+                #  if e > 10:
                 im, lb = mixuper(im, lb)
             if cfg.use_cutmix:
                 im, lb = cutmixer(im, lb)
@@ -278,8 +286,9 @@ def main():
         torch.cuda.empty_cache()
         if (e + 1) % cfg.n_eval_epoch == 0:
             #  if e > 50: n_eval_epoch = 5
-            acc_1, acc_5, acc_1_ema, acc_5_ema = evaluate(ema, dl_eval)
-            msg = 'epoch {} eval result: naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
+            metric_dict = evaluate(ema, dl_eval)
+            msg = f'epoch {e + 1} eval result: {metric_dict}'
+            #  msg = 'epoch {} eval result: naive_acc1: {:.4}, naive_acc5: {:.4}, ema_acc1: {:.4}, ema_acc5: {:.4}'.format(e + 1, acc_1, acc_5, acc_1_ema, acc_5_ema)
             logger.info(msg)
     if dist.is_initialized() and dist.get_rank() == 0:
         #  torch.save(model.module.state_dict(), './res/model_final_naive.pth')
@@ -290,11 +299,15 @@ def main():
 
 def evaluate(ema, dl_eval):
     model = ema.ema_model
-    acc_1_ema, acc_5_ema = eval_model(model, dl_eval)
+    metric_dict = eval_model(model, dl_eval, cfg.metric)
     model = ema.model
-    acc_1, acc_5 = eval_model(model, dl_eval)
+    metric_dict_ema = eval_model(model, dl_eval, cfg.metric)
+    metric_dict_ema = {f'{k}_ema': v for k,v in metric_dict_ema.items()}
+
+    metric_dict.update(metric_dict_ema)
+
     torch.cuda.empty_cache()
-    return acc_1, acc_5, acc_1_ema, acc_5_ema
+    return metric_dict
 
 
 

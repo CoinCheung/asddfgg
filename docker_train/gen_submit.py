@@ -23,12 +23,30 @@ torch.set_grad_enabled(False)
 test_data_root = 'datasets/seti'
 test_ann_file = 'datasets/seti/test.txt'
 cfg_files = [
-        './config/seti/resnet50.py',
+        #  './config/seti/resnet50_adamw_warmup10.py',
+        #  './config/seti/resnet50_adamw_warmup10.py',
+        #  './config/seti/resnet50_adamw_warmup10.py',
+        #  './config/seti/resnet50_adamw_warmup10.py',
+        #  './config/seti/resnet50_adamw_warmup10.py',
+        './config/seti/timm_r18d.py',
+        './config/seti/timm_r18d.py',
+        './config/seti/timm_r18d.py',
+        './config/seti/timm_r18d.py',
+        './config/seti/timm_r18d.py',
         ]
 ckpt_paths = [
-        './res/model_final_ema.pth',
+        #  './res/model_final_naive.pth',
+        './res/model_final_naive_1.pth',
+        './res/model_final_naive_2.pth',
+        './res/model_final_naive_3.pth',
+        './res/model_final_naive_4.pth',
+        './res/model_final_naive_5.pth',
         ]
 batchsize = 32
+cropsize = 512
+hflip = False
+vflip = False
+hvflip = False
 
 
 
@@ -70,21 +88,46 @@ class InferDataset(Dataset):
         super(InferDataset, self).__init__()
         self.fids = list(fid_pths.keys())
         self.trans = A.Compose([
-            A.Resize(p=1., height=320, width=320),
+            A.Resize(p=1., height=cropsize, width=cropsize),
+            A.Normalize(mean=(0.4),std=(0.2),max_pixel_value=180.,p=1.),
             ToTensorV2(),
         ])
+
+    def readimg(self, impth):
+        im_on = np.load(impth)[[0, 2, 4]] # (3, 273, 256)
+        im_off = np.load(impth)[[1, 3, 5]] # (3, 273, 256)
+        im_on = np.vstack(im_on).T[..., np.newaxis] # (256, 819, 1)
+        im_off = np.vstack(im_off).T[..., np.newaxis] # (256, 819, 1)
+        im = np.concatenate([im_on, im_off], axis=2)
+        im = im.astype('f') # (256, 819, 2)
+        return im
+
+    #  def readimg(self, impth):
+    #      im = np.load(impth)[[0, 2, 4]] # (3, 273, 256)
+    #      im = np.vstack(im) # (819, 256)
+    #      im = im.T.astype('f')[..., np.newaxis] # (256, 819, 1)
+    #      return im
 
     def __getitem__(self, ind):
         fid = self.fids[ind]
         pth = osp.join(test_data_root, fid_pths[fid])
-        im = np.load(pth)[[0, 2, 4]] # (3, 273, 256)
-        im = np.vstack(im) # (819, 256)
-        im = im.T.astype('f')[..., np.newaxis] # (256, 819, 1)
+        im = self.readimg(pth)
         im = self.trans(image=im)['image']
         return im, fid
 
     def __len__(self,):
         return len(fid_pths)
+
+
+def infer_with_model(model, imgs):
+    bs = imgs.size(0)
+    scores = torch.zeros(bs).cuda()
+    logits = model(imgs)
+    if logits.size(1) == 1:
+        scores += logits.sigmoid().squeeze()
+    else:
+        scores += logits.softmax(dim=1)[:, 1]
+    return scores
 
 
 def run_submit():
@@ -112,12 +155,22 @@ def run_submit():
         scores = torch.zeros(bs).cuda()
         n_adds = 0
         for model in models:
-            logits = model(imgs)
-            if logits.size(1) == 1:
-                scores += logits.sigmoid().squeeze()
-            else:
-                scores += logits.softmax(dim=1)[:, 1]
+            #  logits = model(imgs)
+            #  if logits.size(1) == 1:
+            #      scores += logits.sigmoid().squeeze()
+            #  else:
+            #      scores += logits.softmax(dim=1)[:, 1]
+            scores += infer_with_model(model, imgs)
             n_adds += 1
+            if hflip:
+                scores += infer_with_model(model, imgs.flip(dims=(3,)))
+                n_adds += 1
+            if vflip:
+                scores += infer_with_model(model, imgs.flip(dims=(2,)))
+                n_adds += 1
+            if hvflip:
+                scores += infer_with_model(model, imgs.flip(dims=(2, 3)))
+                n_adds += 1
         scores /= n_adds
         scores = scores.tolist()
         for fid, score in zip(fids, scores):

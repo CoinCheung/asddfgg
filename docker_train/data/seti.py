@@ -16,11 +16,12 @@ from rand_augment_cv2 import RandomAugment
 
 class SETI(Dataset):
 
-    def __init__(self, root='./', mode='train', cropsize=224):
+    def __init__(self, root='./', mode='train', cropsize=224, binary=True):
         super(SETI, self).__init__()
         self.samples = []
         self.mode = mode
         self.cropsize = cropsize
+        self.binary = binary
         if mode == 'train':
             txtpth = osp.join(root, 'train.txt')
         elif mode == 'val':
@@ -42,19 +43,30 @@ class SETI(Dataset):
                 value=0, mask_value=0),
             A.RandomResizedCrop(p=1.0, width=cropsize,
                 height=cropsize, scale=(0.9, 1.0)),
+            A.Normalize(mean=(0.4),std=(0.2),max_pixel_value=180.,p=1.),
             ToTensorV2(),
             #  RandomAugment(2, 9),
             #  T.PCANoise(0.1),
         ])
         self.trans_val = A.Compose([
             A.Resize(p=1., height=cropsize, width=cropsize),
+            A.Normalize(mean=(0.4),std=(0.2),max_pixel_value=180.,p=1.),
             ToTensorV2(),
         ])
 
+    #  def readimg(self, impth):
+    #      im = np.load(impth)[[0, 2, 4]] # (3, 273, 256)
+    #      im = np.vstack(im) # (819, 256)
+    #      im = im.T.astype('f')[..., np.newaxis] # (256, 819, 1)
+    #      return im
+
     def readimg(self, impth):
-        im = np.load(impth)[[0, 2, 4]] # (3, 273, 256)
-        im = np.vstack(im) # (819, 256)
-        im = im.T.astype('f')[..., np.newaxis] # (256, 819, 1)
+        im_on = np.load(impth)[[0, 2, 4]] # (3, 273, 256)
+        im_off = np.load(impth)[[1, 3, 5]] # (3, 273, 256)
+        im_on = np.vstack(im_on).T[..., np.newaxis] # (256, 819, 1)
+        im_off = np.vstack(im_off).T[..., np.newaxis] # (256, 819, 1)
+        im = np.concatenate([im_on, im_off], axis=2)
+        im = im.astype('f') # (256, 819, 2)
         return im
 
     def __getitem__(self, idx):
@@ -65,7 +77,7 @@ class SETI(Dataset):
         else:
             im = self.trans_val(image=im)
         im = im['image']
-        label = torch.tensor([label]).float()
+        if self.binary: label = torch.tensor([label]).float()
         return im, label
 
     def __len__(self):

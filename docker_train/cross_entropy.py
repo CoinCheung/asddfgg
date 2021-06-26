@@ -237,6 +237,22 @@ class KVDivLoss(nn.Module):
         return loss
 
 
+
+from pytorch_loss import FocalLossV3, SoftDiceLossV3
+class SoftDiceFocalLoss(nn.Module):
+
+    def __init__(self, reduction='mean'):
+        super(SoftDiceFocalLoss, self).__init__()
+        self.dice = SoftDiceLossV3(reduction)
+        self.focal = FocalLossV3(alpha=0.25, gamma=2, reduction=reduction)
+
+    def forward(self, logits, labels):
+        l_dice = self.dice(logits, labels)
+        l_focal = self.focal(logits, labels)
+        loss = l_dice + l_focal
+        return loss
+
+
 if __name__ == '__main__':
     torch.manual_seed(15)
     criteria = LabelSmoothSoftmaxCE(lb_pos=0.9, lb_neg=5e-3)

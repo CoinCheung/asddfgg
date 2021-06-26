@@ -6,7 +6,7 @@ n_eval_epoch = 1
 #  opt_type = 'AdamW'
 #  opt_args = dict(
 #          #  lr=0.001 * (batchsize / 64) * n_gpus,
-#          lr=0.0005,
+#          lr=0.001,
 #          weight_decay=1e-2)
 opt_type = 'SGD'
 opt_args = dict(
@@ -17,12 +17,12 @@ schdlr_args = dict(
         max_iter=n_epoches, eta_ratio=0.,
         warmup_iter=10, warmup='linear', warmup_ratio=0.05)
 model_args = dict(model_type='ResNet', in_chan=1, n_layers=50,
-        n_classes=1, use_blur_pool=True,
+        n_classes=2, use_blur_pool=True, dropout=0.5,
         pretrain='/root/pretrained/not_uploaded/model_final_naive_r50_ra_lsr_200ep.pth')
 
 dataset_args = dict(
         ds_type='SETI', root='./datasets/seti/',
-        cropsize=320, binary=True
+        cropsize=320, binary=False
         )
 print_freq = 50
 metric = 'roc_auc'

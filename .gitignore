@@ -112,5 +112,6 @@ cifar/res/
 docker_train/datasets/imagenet/
 docker_train/datasets/seti/*txt
 docker_train/datasets/seti/*csv
+docker_train/datasets/seti/folds/*
 docker_train/res/
 

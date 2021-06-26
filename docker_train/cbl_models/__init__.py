@@ -22,6 +22,8 @@ from .resnet_base import ResNetBackbone
 from .xception_v2 import XceptionBackbone
 from .repvgg import RepVGGBackBone
 
+from .timm_model import TIMM
+
 
 def build_model(model_args):
     model_type = model_args['model_type']

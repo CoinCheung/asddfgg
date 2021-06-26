@@ -24,7 +24,6 @@ from torch.utils.data import Dataset, DataLoader
 #  from config.repvgg_a2 import *
 
 
-ckpt_path = './res/model_final_naive.pth'
 
 
 def parse_args():
@@ -34,22 +33,20 @@ def parse_args():
                        type=int,
                        default=-1,)
     parse.add_argument('--config', dest='config', type=str, default='resnet50.py',)
+    parse.add_argument('--ckpt', dest='ckpt_path', type=str, default='./res/model_final_naive.pth',)
     return parse.parse_args()
 
 
-args = parse_args()
-cfg = set_cfg_from_file(args.config)
 
 
-
-def evaluate(model, dl_eval):
-    acc_1, acc_5 = eval_model(model, dl_eval)
+def evaluate(cfg, model, dl_eval):
+    metric_dict = eval_model(model, dl_eval, cfg.metric)
     torch.cuda.empty_cache()
-    return acc_1, acc_5
+    return metric_dict
 
 
 @torch.no_grad()
-def eval_model(model, dl_eval):
+def eval_model(model, dl_eval, metric='acc'):
     model.eval()
     all_scores, all_gts = [], []
     for idx, (im, lb) in enumerate(dl_eval):
@@ -67,7 +64,22 @@ def eval_model(model, dl_eval):
     all_scores = torch.cat(all_scores, dim=0)
     all_gts = torch.cat(all_gts, dim=0)
 
-    if all_scores.size(1) == 1:
+    metric_dict = {}
+    if metric == 'acc':
+        acc1, acc5 = compute_acc(all_scores, all_gts)
+        metric_dict['acc1'] = acc1
+        metric_dict['acc5'] = acc5
+    elif metric == 'roc_auc':
+        roc_auc = compute_roc_auc_score(all_scores, all_gts)
+        metric_dict['roc_auc'] = roc_auc
+    else:
+        raise NotImplementedError
+    return metric_dict
+
+
+@torch.no_grad()
+def compute_acc(all_scores, all_gts):
+    if all_scores.size(1) == 1: # binary
         all_preds = all_scores.round().long()
         n_correct = (all_gts == all_preds).sum()
         n_samples = torch.tensor(all_gts.size(0)).cuda()
@@ -75,8 +87,8 @@ def eval_model(model, dl_eval):
             dist.all_reduce(n_correct, dist.ReduceOp.SUM)
             dist.all_reduce(n_samples, dist.ReduceOp.SUM)
         acc1 = n_correct / n_samples
-        acc5 = acc1
-    else:
+        acc5 = 1.
+    else: # multi-class
         all_preds = torch.argsort(-all_scores, dim=1)
         match = (all_preds == all_gts.unsqueeze(1)).float()
         n_correct_1 = match[:, :1].sum()
@@ -88,22 +100,36 @@ def eval_model(model, dl_eval):
             dist.all_reduce(n_samples, dist.ReduceOp.SUM)
         acc1 = (n_correct_1 / n_samples).item()
         acc5 = (n_correct_5 / n_samples).item()
-    torch.cuda.empty_cache()
     return acc1, acc5
 
 
 @torch.no_grad()
-def compute_acc():
+def compute_roc_auc_score(all_scores, all_gts):
+    if not all_scores.size(1) == 1: raise NotImplementedError
 
-
-@torch.no_grad()
-def compute_roc_auc_score():
-    pass
+    all_scores = all_scores.contiguous()
+    all_gt_gather = [torch.ones_like(all_gts)
+            for _ in range(dist.get_world_size())]
+    all_scores_gather = [torch.ones_like(all_scores)
+            for _ in range(dist.get_world_size())]
+    dist.all_gather(all_gt_gather, all_gts, async_op=False)
+    dist.all_gather(all_scores_gather, all_scores, async_op=False)
+    all_gt_gather = torch.cat(all_gt_gather, dim=0).squeeze()
+    all_scores_gather = torch.cat(all_scores_gather, dim=0).squeeze()
+    all_gt_gather = all_gt_gather.detach().cpu().numpy()
+    all_scores_gather = all_scores_gather.detach().cpu().numpy()
+    roc_auc = roc_auc_score(y_true=all_gt_gather, y_score=all_scores_gather)
+    return roc_auc
 
 
 def main():
+    args = parse_args()
+    cfg = set_cfg_from_file(args.config)
+
+    init_dist(args)
+
     model = build_model(cfg.model_args)
-    sd = torch.load(ckpt_path, map_location='cpu')
+    sd = torch.load(args.ckpt_path, map_location='cpu')
     #  new_sd = {}
     #  for k, v in sd.items():
     #      k = k.replace('module.', '')
@@ -138,10 +164,11 @@ def main():
             num_workers=8, pin_memory=True, drop_last=False
         )
 
-    acc1, acc5 = evaluate(model, dl)
+    metric_dict = evaluate(cfg, model, dl)
 
     if not (dist.is_initialized() and dist.get_rank() != 0):
-        print('acc1: {}, acc5: {}'.format(acc1, acc5))
+        msg = f'eval result: {metric_dict}'
+        print(msg)
 
 
 def init_dist(args):
@@ -154,5 +181,4 @@ def init_dist(args):
     )
 
 if __name__ == "__main__":
-    init_dist(args)
     main()

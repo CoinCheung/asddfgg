@@ -326,7 +326,7 @@ class ResNetBackbone(nn.Module):
 class ResNet(nn.Module):
 
     def __init__(self, n_classes=1000, in_chan=3, n_layers=50, stride=32,
-            use_se=False, use_ca=False, use_askc=False, conv_type='nn',
+            use_se=False, use_ca=False, use_askc=False, conv_type='nn', dropout=-1,
             mid_type='nn', act_type='relu', ibn='none', stem_type='naive',
             use_blur_pool=False, out1024=False, pretrain=None):
         super(ResNet, self).__init__()
@@ -336,12 +336,14 @@ class ResNet(nn.Module):
                 conv_type=conv_type, mid_type=mid_type, act_type=act_type,
                 ibn=ibn, stem_type=stem_type, use_blur_pool=use_blur_pool,
                 out1024=out1024)
+        self.dropout = nn.Identity() if dropout < 0 else nn.Dropout(dropout)
         self.classifier = nn.Linear(self.backbone.out_chans[-1], n_classes, bias=True)
         self.load_pretrain(pretrain)
 
     def forward(self, x):
         feat = self.backbone(x)[-1]
         feat = torch.mean(feat, dim=(2, 3))
+        feat = self.dropout(feat)
         logits = self.classifier(feat)
         return logits
 
